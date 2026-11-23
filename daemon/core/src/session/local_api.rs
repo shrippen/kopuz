@@ -1251,11 +1251,15 @@ impl api::SourceApi for LocalApi {
         id: String,
         values: Vec<api::FieldValue>,
     ) -> Result<api::IntegrationInfo, ApiError> {
-        self.integrations()?.set_settings(&id, values).await
+        let info = self.integrations()?.set_settings(&id, values).await?;
+        self.session.invalidate(api::Table::Servers);
+        Ok(info)
     }
 
     async fn clear_integration(&self, id: String) -> Result<(), ApiError> {
-        self.integrations()?.clear(&id).await
+        self.integrations()?.clear(&id).await?;
+        self.session.invalidate(api::Table::Servers);
+        Ok(())
     }
 
     async fn authenticate_integration(&self, id: String) -> Result<api::IntegrationInfo, ApiError> {
