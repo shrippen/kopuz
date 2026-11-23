@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use server::audiomuse::{AudioMuse, AudioMuseError};
+use server::audiomuse::{AudioMuse, AudioMuseError, SimilarArtist};
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 
 const TOKEN: &str = "test-token";
@@ -230,7 +230,12 @@ async fn sound_calls_send_their_query_and_an_unanalysed_song_is_empty() {
     );
     assert_eq!(
         client.similar_artists("ar-1", 20).await.expect("artists"),
-        [("ar-2".to_string(), "Boris".to_string(), 0.2)]
+        [SimilarArtist {
+            id: "ar-2".into(),
+            name: "Boris".into(),
+            divergence: 0.2,
+            tracks: Some(3),
+        }]
     );
     let score = client.score("a").await.expect("score").expect("analysed");
     assert_eq!(score.tags, [("metal".to_string(), 0.6)]);

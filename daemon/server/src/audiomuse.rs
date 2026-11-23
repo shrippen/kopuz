@@ -50,11 +50,23 @@ struct SimilarTrack {
 }
 
 #[derive(Deserialize)]
-struct SimilarArtist {
+struct ArtistHit {
     artist: String,
     /// None for a credit such as "A feat. B", which no library artist can match.
     artist_id: Option<String>,
     divergence: f32,
+    track_count: Option<u32>,
+}
+
+/// An artist close in sound to another one.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SimilarArtist {
+    pub id: String,
+    pub name: String,
+    /// Smaller is closer.
+    pub divergence: f32,
+    /// How many of the artist's songs AudioMuse-AI analysed; None from a version that does not say.
+    pub tracks: Option<u32>,
 }
 
 #[derive(Deserialize)]
@@ -109,12 +121,19 @@ fn similar_track_ids(body: &[u8]) -> Result<Vec<(String, f32)>, AudioMuseError> 
         .collect())
 }
 
-fn similar_artist_rows(body: &[u8]) -> Result<Vec<(String, String, f32)>, AudioMuseError> {
-    let found: Vec<SimilarArtist> =
+fn similar_artist_rows(body: &[u8]) -> Result<Vec<SimilarArtist>, AudioMuseError> {
+    let found: Vec<ArtistHit> =
         serde_json::from_slice(body).map_err(|_| AudioMuseError::Malformed)?;
     Ok(found
         .into_iter()
-        .filter_map(|hit| Some((hit.artist_id?, hit.artist, hit.divergence)))
+        .filter_map(|hit| {
+            Some(SimilarArtist {
+                id: hit.artist_id?,
+                name: hit.artist,
+                divergence: hit.divergence,
+                tracks: hit.track_count,
+            })
+        })
         .collect())
 }
 
@@ -220,12 +239,12 @@ impl AudioMuse {
         }
     }
 
-    /// The `count` artists closest in sound to one artist, as id, name and divergence (smaller is closer).
+    /// The `count` artists closest in sound to one artist.
     pub async fn similar_artists(
         &self,
         artist_id: &str,
         count: usize,
-    ) -> Result<Vec<(String, String, f32)>, AudioMuseError> {
+    ) -> Result<Vec<SimilarArtist>, AudioMuseError> {
         let request = self
             .client
             .get(format!("{}/api/similar_artists", self.base))
@@ -306,15 +325,24 @@ mod tests {
         );
         let artists =
             br#"[{"artist":"Boris","artist_id":"ar-2","divergence":0.5,"track_count":9}]"#;
+        let boris = SimilarArtist {
+            id: "ar-2".into(),
+            name: "Boris".into(),
+            divergence: 0.5,
+            tracks: Some(9),
+        };
         assert_eq!(
             similar_artist_rows(artists).unwrap(),
-            [("ar-2".to_string(), "Boris".to_string(), 0.5)]
+            std::slice::from_ref(&boris)
         );
         // A credit such as "A feat. B" has no artist id of its own.
         let credited = br#"[{"artist":"A feat. B","artist_id":null,"divergence":0.1,"track_count":1},{"artist":"Boris","artist_id":"ar-2","divergence":0.5}]"#;
         assert_eq!(
             similar_artist_rows(credited).unwrap(),
-            [("ar-2".to_string(), "Boris".to_string(), 0.5)]
+            [SimilarArtist {
+                tracks: None,
+                ..boris
+            }]
         );
         assert!(matches!(
             similar_track_ids(b"<html></html>"),

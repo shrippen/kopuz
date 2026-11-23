@@ -6,7 +6,7 @@ use std::sync::PoisonError;
 
 use api::{ApiError, SimilarArtist, SoundView};
 use futures_util::StreamExt as _;
-use server::audiomuse::{AudioMuse, Score};
+use server::audiomuse::{AudioMuse, Score, SimilarArtist as SimilarArtistHit};
 
 use super::audiomuse_error;
 use crate::catalog::{CatalogService, db_error};
@@ -15,10 +15,14 @@ use crate::catalog::{CatalogService, db_error};
 const SAMPLE_TRACKS: usize = 4;
 /// Neighbours asked for per sampled song.
 const SIMILAR_PER_TRACK: usize = 20;
-/// Neighbouring artists asked for.
-const SIMILAR_ARTISTS_ASKED: usize = 20;
+/// Neighbouring artists asked for: most of the closest are one-song credits that
+/// [`MIN_ARTIST_TRACKS`] drops, so ask for many to keep enough.
+const SIMILAR_ARTISTS_ASKED: usize = 100;
 const MAX_ALBUMS: usize = 8;
 const MAX_ARTISTS: usize = 10;
+
+/// Fewer songs than this is a guest spot or a stray tag rather than an artist to explore.
+const MIN_ARTIST_TRACKS: u32 = 3;
 const MAX_TAGS: usize = 3;
 const MAX_MOODS: usize = 2;
 /// A mood stands out when it beats the mean of all moods by this much; they cluster near 0.5 to 0.65.
@@ -107,16 +111,17 @@ fn rank_albums<'a>(
 
 /// The library's artists among AudioMuse's, closest first, the artist asked about left out.
 fn library_artists(
-    mut found: Vec<(String, String, f32)>,
+    mut found: Vec<SimilarArtistHit>,
     linked: &HashMap<String, String>,
     own: &str,
     limit: usize,
 ) -> Vec<SimilarArtist> {
-    found.sort_by(|a, b| a.2.total_cmp(&b.2));
+    found.sort_by(|a, b| a.divergence.total_cmp(&b.divergence));
     let mut seen = HashSet::new();
     found
         .into_iter()
-        .filter_map(|(id, name, _)| {
+        .filter(|hit| hit.tracks.is_none_or(|tracks| tracks >= MIN_ARTIST_TRACKS))
+        .filter_map(|SimilarArtistHit { id, name, .. }| {
             let key = linked.get(&id)?;
             if key == own || !seen.insert(key.clone()) {
                 return None;
@@ -399,6 +404,33 @@ mod tests {
         assert_eq!(ranked, ["a", "b"]);
     }
 
+    fn hit(id: &str, name: &str, divergence: f32, tracks: Option<u32>) -> SimilarArtistHit {
+        SimilarArtistHit {
+            id: id.into(),
+            name: name.into(),
+            divergence,
+            tracks,
+        }
+    }
+
+    #[test]
+    fn an_artist_with_a_song_or_two_is_left_out() {
+        let linked = HashMap::from([
+            ("ar-2".to_string(), "k2".to_string()),
+            ("ar-3".to_string(), "k3".to_string()),
+        ]);
+        // A guest spot, such as "A feat. B", is an artist of its own with one song.
+        let found = vec![
+            hit("ar-2", "A feat. B", 0.1, Some(2)),
+            hit("ar-3", "Cyd", 0.5, Some(3)),
+        ];
+
+        let kept = library_artists(found, &linked, "k1", 10);
+
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].name, "Cyd");
+    }
+
     #[test]
     fn only_library_artists_are_kept_closest_first_without_the_artist_itself() {
         let linked = HashMap::from([
@@ -407,10 +439,10 @@ mod tests {
             ("ar-3".to_string(), "k3".to_string()),
         ]);
         let found = vec![
-            ("ar-3".into(), "Cyd".into(), 0.9),
-            ("ar-9".into(), "Elsewhere".into(), 0.1),
-            ("ar-1".into(), "Ada".into(), 0.0),
-            ("ar-2".into(), "Boris".into(), 0.4),
+            hit("ar-3", "Cyd", 0.9, Some(3)),
+            hit("ar-9", "Elsewhere", 0.1, Some(9)),
+            hit("ar-1", "Ada", 0.0, Some(9)),
+            hit("ar-2", "Boris", 0.4, None),
         ];
 
         let kept = library_artists(found.clone(), &linked, "k1", 10);
