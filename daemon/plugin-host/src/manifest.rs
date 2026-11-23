@@ -3,7 +3,7 @@
 
 use serde::Deserialize;
 
-pub const SUPPORTED_API: &[&str] = &["0.1"];
+pub const SUPPORTED_API: &[&str] = &["0.2"];
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -105,6 +105,10 @@ pub struct Capabilities {
     pub watch_history: bool,
     pub complete_play_history: bool,
     pub library_actions: Vec<LibraryAction>,
+    pub ratings: bool,
+    pub artist_info: bool,
+    pub radio_stations: bool,
+    pub sonic_path: bool,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
@@ -113,6 +117,9 @@ pub enum RadioSeed {
     Track,
     Playlist,
     Search,
+    Album,
+    Artist,
+    Tracks,
 }
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
@@ -241,7 +248,7 @@ mod tests {
         id = "subsonic"
         name = "Subsonic"
         version = "0.1.0"
-        api = "0.1"
+        api = "0.2"
 
         [permissions]
         network = ["$server"]
@@ -286,7 +293,7 @@ mod tests {
 
     #[test]
     fn an_unknown_api_or_a_repeated_service_is_refused() {
-        let future = SUBSONIC.replace("api = \"0.1\"", "api = \"9.0\"");
+        let future = SUBSONIC.replace("api = \"0.2\"", "api = \"9.0\"");
         assert!(matches!(
             Manifest::parse(&future),
             Err(ManifestError::UnsupportedApi(api)) if api == "9.0"

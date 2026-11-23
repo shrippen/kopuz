@@ -96,6 +96,8 @@ impl Source for Clippsly {
                     year: 0,
                     cover: track.cover.clone(),
                     artist_id: None,
+                    last_played: None,
+                    rating: None,
                 });
             tracks.push(track);
         }

@@ -89,7 +89,7 @@ is a complete community plugin that adds a service of its own.
 id = "internet-archive"      # unique; also its directory name
 name = "Internet Archive"
 version = "0.1.0"
-api = "0.1"                  # the plugin API it was built against
+api = "0.2"                  # the plugin API it was built against
 description = "Albums and live recordings from archive.org."
 
 [permissions]
@@ -111,7 +111,9 @@ capabilities = { sync = true, downloads = true }
 Capabilities default to off. The keys mirror the daemon's: `sync`,
 `downloads`, `uploads`, `storage-quota`, `play-queue`,
 `playlists = "none" | "add-remove" | "reorder"`,
-`radio = ["track", "playlist", "search"]`,
+`radio = ["track", "playlist", "search", "album", "artist", "tracks"]`,
+`ratings` (`set-rating`), `artist-info` (`fetch-artist-info`),
+`radio-stations` (`fetch-radio-stations`), `sonic-path` (`sonic-path`),
 `favorites-sync = "instant" | "paginated"`, and the rest listed in
 `daemon/plugin-host/src/manifest.rs`. A misspelled key is an error, not a
 silently disabled feature.
@@ -120,6 +122,12 @@ A `network` entry is a host name, not an address. A name is checked where it
 resolves; an address listed there would reach whatever it names without that
 check, so the manifest is refused. `$server` covers the configured server,
 whatever its address.
+
+API 0.2 adds `set-rating`, `start-mix` (seeded by `album`, `artist` or `tracks`
+in `radio`), `sonic-path`, `fetch-artist-info` and `fetch-radio-stations`; each
+is unsupported unless the plugin implements it. Tracks and albums carry
+`last-played` and `rating`, tracks `play-count`, and a radio or mix page
+says its `basis` (`sonic` or `metadata`). The manifest's `api` is `"0.2"`.
 
 ### Reading folders
 
@@ -211,7 +219,7 @@ each:
       "id": "internet-archive",
       "name": "Internet Archive",
       "version": "0.1.0",
-      "api": "0.1",
+      "api": "0.2",
       "description": "Albums and live recordings from archive.org.",
       "author": "someone",
       "homepage": "https://github.com/someone/kopuz-internet-archive",
