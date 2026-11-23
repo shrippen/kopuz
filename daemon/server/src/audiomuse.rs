@@ -52,7 +52,8 @@ struct SimilarTrack {
 #[derive(Deserialize)]
 struct SimilarArtist {
     artist: String,
-    artist_id: String,
+    /// None for a credit such as "A feat. B", which no library artist can match.
+    artist_id: Option<String>,
     divergence: f32,
 }
 
@@ -113,7 +114,7 @@ fn similar_artist_rows(body: &[u8]) -> Result<Vec<(String, String, f32)>, AudioM
         serde_json::from_slice(body).map_err(|_| AudioMuseError::Malformed)?;
     Ok(found
         .into_iter()
-        .map(|hit| (hit.artist_id, hit.artist, hit.divergence))
+        .filter_map(|hit| Some((hit.artist_id?, hit.artist, hit.divergence)))
         .collect())
 }
 
@@ -307,6 +308,12 @@ mod tests {
             br#"[{"artist":"Boris","artist_id":"ar-2","divergence":0.5,"track_count":9}]"#;
         assert_eq!(
             similar_artist_rows(artists).unwrap(),
+            [("ar-2".to_string(), "Boris".to_string(), 0.5)]
+        );
+        // A credit such as "A feat. B" has no artist id of its own.
+        let credited = br#"[{"artist":"A feat. B","artist_id":null,"divergence":0.1,"track_count":1},{"artist":"Boris","artist_id":"ar-2","divergence":0.5}]"#;
+        assert_eq!(
+            similar_artist_rows(credited).unwrap(),
             [("ar-2".to_string(), "Boris".to_string(), 0.5)]
         );
         assert!(matches!(
