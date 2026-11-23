@@ -323,10 +323,10 @@ impl CoverRef {
                 Self::remote_item(MusicService::Jellyfin, item_id, value)
             }
             "subsonic" if !item_id.is_empty() => {
-                Self::remote_item(MusicService::Subsonic, item_id, value)
+                Self::subsonic_item(MusicService::Subsonic, item_id, value)
             }
             "custom" if !item_id.is_empty() => {
-                Self::remote_item(MusicService::Custom, item_id, value)
+                Self::subsonic_item(MusicService::Custom, item_id, value)
             }
             // YT Music, SoundCloud and Apple Music refs only carry
             // self-contained artwork — a URL, or an Apple artwork template.
@@ -338,6 +338,23 @@ impl CoverRef {
             "ytmusic" | "soundcloud" | "applemusic" | "nextcloud" | "clippsly" | "smb"
             | "plugin" => value.map_or(Self::None, Self::parse),
             _ => Self::None,
+        }
+    }
+
+    /// A Subsonic cover-art id is opaque and may hold a colon itself, as
+    /// Navidrome's disc art `dc-<album>:<disc>` does. A third segment that is
+    /// neither the no-cover sentinel nor a typed ref is the rest of that id.
+    fn subsonic_item(service: MusicService, item_id: &str, value: Option<&str>) -> Self {
+        let Some(rest) = value else {
+            return Self::remote_item(service, item_id, None);
+        };
+        let typed = !matches!(Self::parse(rest), Self::None | Self::Local(_));
+        if rest == Self::NO_COVER || typed {
+            return Self::remote_item(service, item_id, value);
+        }
+
+        Self::SubsonicItem {
+            item_id: format!("{item_id}:{rest}"),
         }
     }
 
@@ -798,6 +815,27 @@ mod tests {
     }
 
     #[test]
+    fn a_subsonic_cover_art_id_keeps_its_own_colon() {
+        // Navidrome's disc art: `dc-<album>:<disc>`.
+        for service in [MusicService::Subsonic, MusicService::Custom] {
+            let cover = CoverRef::stored_item_ref(service, "dc-5z0Cnwr0:1", None);
+            assert_eq!(
+                CoverRef::parse(&cover),
+                CoverRef::SubsonicItem {
+                    item_id: "dc-5z0Cnwr0:1".to_string(),
+                },
+                "{cover}"
+            );
+            assert_eq!(
+                CoverRef::for_track(&track(service, "song-1", Some(&cover), "")),
+                CoverRef::SubsonicItem {
+                    item_id: "dc-5z0Cnwr0:1".to_string(),
+                }
+            );
+        }
+    }
+
+    #[test]
     fn soundcloud_track_covers_are_self_contained() {
         let url = "https://i1.sndcdn.com/artworks-1:2-large.jpg";
         for stored in [url.to_string(), format!("directurl:{url}")] {
@@ -831,7 +869,9 @@ mod tests {
                 },
             ),
         ] {
-            let stored = CoverRef::stored_item_ref(service, "item-1", Some("tag-1"));
+            // Only Jellyfin carries a tag; a Subsonic third segment is part of the id.
+            let tag = (service == MusicService::Jellyfin).then_some("tag-1");
+            let stored = CoverRef::stored_item_ref(service, "item-1", tag);
             assert_eq!(CoverRef::parse(&stored), expected, "{stored}");
             assert_eq!(
                 CoverRef::parse(&CoverRef::stored_item_ref(
