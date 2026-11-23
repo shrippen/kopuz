@@ -639,6 +639,7 @@ sort_field_genre = ז’אנר
 sort_field_album = אלבום
 sort_field_duration = משך
 sort_field_date_added = תאריך הוספה
+sort_field_last_played = הושמע לאחרונה
 sort_field_name = שם
 sort_field_tracks = שירים
 sort_field_albums = אלבומים
@@ -954,13 +955,14 @@ library_group_unknown = Unknown
 library_columns = Columns
 library_column_plays = Plays
 library_column_format = Format
-library_column_rating = Rating
+library_column_rating = דירוג
 rate_stars =
     { $count ->
-        [one] Rate { $count } star
-       *[other] Rate { $count } stars
+        [one] דירוג: כוכב אחד
+        [two] דירוג: { $count } כוכבים
+       *[other] דירוג: { $count } כוכבים
     }
-clear_rating = Clear rating
+clear_rating = ניקוי הדירוג
 library_column_quality = Quality
 library_density = Row height
 library_density_description = How much room each row is given.
@@ -1108,6 +1110,7 @@ error_browser_profile_signed_out = That browser profile is not signed in to the 
 error_browser_profile_no_token = The service did not show a token for that profile. Paste it instead.
 error_integration_unreachable = Could not reach the service. Check your connection.
 error_credential_rejected = The service does not accept that token. Paste your token instead.
+error_integration_failed = השירות החזיר שגיאה. נסו שוב מאוחר יותר.
 error_default_source_undeletable = The default folder source cannot be deleted.
 error_empty_source_folder = A source folder cannot be empty.
 error_code_invalid_input = Not accepted: { $detail }
@@ -1316,19 +1319,28 @@ mix_from_queue = Mix from queue
 sonic_path_start = Start sonic path here
 sonic_path_end = Sonic path to here
 sonic_path_marked = Sonic path starts here. Pick "Sonic path to here" on another song.
+artist_about = אודות
+artist_similar = אמנים דומים
+artist_info_link = עוד על האמן הזה
+radio_from_server = מהשרת שלך
+radio_metadata_basis = AudioMuse עדיין לא מכיר את השירים האלה, לכן הרדיו הזה פועל לפי תגיות ו־Last.fm.
+mix_from_queue = מיקס מהתור
+sonic_path_start = התחלת מסלול צליל מכאן
+sonic_path_end = מסלול צליל עד כאן
+sonic_path_marked = מסלול הצליל מתחיל כאן. בחרו ב״מסלול צליל עד כאן״ בשיר אחר.
 audiomuse = AudioMuse-AI
-audiomuse_url = AudioMuse-AI address
+audiomuse_url = כתובת AudioMuse-AI
 audiomuse_url_placeholder = http://host:8000
-audiomuse_token = AudioMuse-AI API token
-audiomuse_token_placeholder = Enter your AudioMuse-AI API token
-describe_music = Music by description…
-described_searching = Looking for matching music…
-discover_your_sound = Your sound
-discover_your_sound_hint = From your listening profile
-sounds_like = Sounds like
-mood_danceable = Danceable
-mood_aggressive = Aggressive
-mood_happy = Happy
-mood_party = Party
-mood_relaxed = Relaxed
-mood_sad = Sad
+audiomuse_token = אסימון API של AudioMuse-AI
+audiomuse_token_placeholder = הזינו את אסימון ה־API של AudioMuse-AI
+describe_music = מוזיקה לפי תיאור…
+described_searching = מתבצע חיפוש אחר מוזיקה מתאימה…
+discover_your_sound = הצליל שלך
+discover_your_sound_hint = מפרופיל ההאזנה שלך
+sounds_like = נשמע כמו
+mood_danceable = ריקודי
+mood_aggressive = אגרסיבי
+mood_happy = שמח
+mood_party = מסיבה
+mood_relaxed = רגוע
+mood_sad = עצוב

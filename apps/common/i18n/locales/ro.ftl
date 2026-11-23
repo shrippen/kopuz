@@ -647,6 +647,7 @@ sort_field_genre = Gen
 sort_field_album = Album
 sort_field_duration = Durată
 sort_field_date_added = Data adăugării
+sort_field_last_played = Ultima redare
 sort_field_name = Nume
 sort_field_tracks = Piese
 sort_field_albums = Albume
@@ -962,13 +963,14 @@ library_group_unknown = Unknown
 library_columns = Columns
 library_column_plays = Plays
 library_column_format = Format
-library_column_rating = Rating
+library_column_rating = Evaluare
 rate_stars =
     { $count ->
-        [one] Rate { $count } star
-       *[other] Rate { $count } stars
+        [one] Evaluează cu { $count } stea
+        [few] Evaluează cu { $count } stele
+       *[other] Evaluează cu { $count } de stele
     }
-clear_rating = Clear rating
+clear_rating = Șterge evaluarea
 library_column_quality = Quality
 library_density = Row height
 library_density_description = How much room each row is given.
@@ -1116,6 +1118,7 @@ error_browser_profile_signed_out = That browser profile is not signed in to the 
 error_browser_profile_no_token = The service did not show a token for that profile. Paste it instead.
 error_integration_unreachable = Could not reach the service. Check your connection.
 error_credential_rejected = The service does not accept that token. Paste your token instead.
+error_integration_failed = Serviciul a răspuns cu o eroare. Încearcă din nou mai târziu.
 error_default_source_undeletable = The default folder source cannot be deleted.
 error_empty_source_folder = A source folder cannot be empty.
 error_code_invalid_input = Not accepted: { $detail }
@@ -1324,19 +1327,28 @@ mix_from_queue = Mix from queue
 sonic_path_start = Start sonic path here
 sonic_path_end = Sonic path to here
 sonic_path_marked = Sonic path starts here. Pick "Sonic path to here" on another song.
+artist_about = Despre
+artist_similar = Artiști similari
+artist_info_link = Mai multe despre acest artist
+radio_from_server = De pe serverul tău
+radio_metadata_basis = AudioMuse nu cunoaște încă aceste melodii, așa că acest radio urmează etichetele și Last.fm.
+mix_from_queue = Mix din coadă
+sonic_path_start = Începe traseul sonor aici
+sonic_path_end = Traseu sonor până aici
+sonic_path_marked = Traseul sonor începe aici. Alege „Traseu sonor până aici” la altă melodie.
 audiomuse = AudioMuse-AI
-audiomuse_url = AudioMuse-AI address
+audiomuse_url = Adresa AudioMuse-AI
 audiomuse_url_placeholder = http://host:8000
-audiomuse_token = AudioMuse-AI API token
-audiomuse_token_placeholder = Enter your AudioMuse-AI API token
-describe_music = Music by description…
-described_searching = Looking for matching music…
-discover_your_sound = Your sound
-discover_your_sound_hint = From your listening profile
-sounds_like = Sounds like
-mood_danceable = Danceable
-mood_aggressive = Aggressive
-mood_happy = Happy
-mood_party = Party
-mood_relaxed = Relaxed
-mood_sad = Sad
+audiomuse_token = Token API AudioMuse-AI
+audiomuse_token_placeholder = Introdu token-ul API AudioMuse-AI
+describe_music = Muzică după descriere…
+described_searching = Se caută muzică potrivită…
+discover_your_sound = Sunetul tău
+discover_your_sound_hint = Din profilul tău de ascultare
+sounds_like = Sună ca
+mood_danceable = De dans
+mood_aggressive = Agresiv
+mood_happy = Vesel
+mood_party = De petrecere
+mood_relaxed = Relaxat
+mood_sad = Trist

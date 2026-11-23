@@ -655,6 +655,7 @@ sort_field_genre = Жанр
 sort_field_album = Альбом
 sort_field_duration = Тривалість
 sort_field_date_added = Дата додавання
+sort_field_last_played = Востаннє відтворено
 sort_field_name = Ім'я
 sort_field_tracks = Треки
 sort_field_albums = Альбоми
@@ -970,13 +971,15 @@ library_group_unknown = Unknown
 library_columns = Columns
 library_column_plays = Plays
 library_column_format = Format
-library_column_rating = Rating
+library_column_rating = Оцінка
 rate_stars =
     { $count ->
-        [one] Rate { $count } star
-       *[other] Rate { $count } stars
+        [one] Поставити { $count } зірку
+        [few] Поставити { $count } зірки
+        [many] Поставити { $count } зірок
+       *[other] Поставити { $count } зірки
     }
-clear_rating = Clear rating
+clear_rating = Скинути оцінку
 library_column_quality = Quality
 library_density = Row height
 library_density_description = How much room each row is given.
@@ -1124,6 +1127,7 @@ error_browser_profile_signed_out = That browser profile is not signed in to the 
 error_browser_profile_no_token = The service did not show a token for that profile. Paste it instead.
 error_integration_unreachable = Could not reach the service. Check your connection.
 error_credential_rejected = The service does not accept that token. Paste your token instead.
+error_integration_failed = Сервіс повернув помилку. Спробуйте пізніше.
 error_default_source_undeletable = The default folder source cannot be deleted.
 error_empty_source_folder = A source folder cannot be empty.
 error_code_invalid_input = Not accepted: { $detail }
@@ -1332,19 +1336,28 @@ mix_from_queue = Mix from queue
 sonic_path_start = Start sonic path here
 sonic_path_end = Sonic path to here
 sonic_path_marked = Sonic path starts here. Pick "Sonic path to here" on another song.
+artist_about = Про виконавця
+artist_similar = Схожі виконавці
+artist_info_link = Докладніше про цього виконавця
+radio_from_server = З вашого сервера
+radio_metadata_basis = AudioMuse ще не знає цих пісень, тож це радіо спирається на теги та Last.fm.
+mix_from_queue = Мікс із черги
+sonic_path_start = Почати звуковий шлях звідси
+sonic_path_end = Звуковий шлях до цієї пісні
+sonic_path_marked = Звуковий шлях починається тут. Виберіть «Звуковий шлях до цієї пісні» в іншої пісні.
 audiomuse = AudioMuse-AI
-audiomuse_url = AudioMuse-AI address
+audiomuse_url = Адреса AudioMuse-AI
 audiomuse_url_placeholder = http://host:8000
-audiomuse_token = AudioMuse-AI API token
-audiomuse_token_placeholder = Enter your AudioMuse-AI API token
-describe_music = Music by description…
-described_searching = Looking for matching music…
-discover_your_sound = Your sound
-discover_your_sound_hint = From your listening profile
-sounds_like = Sounds like
-mood_danceable = Danceable
-mood_aggressive = Aggressive
-mood_happy = Happy
-mood_party = Party
-mood_relaxed = Relaxed
-mood_sad = Sad
+audiomuse_token = API-токен AudioMuse-AI
+audiomuse_token_placeholder = Введіть API-токен AudioMuse-AI
+describe_music = Музика за описом…
+described_searching = Шукаємо відповідну музику…
+discover_your_sound = Ваше звучання
+discover_your_sound_hint = За вашим профілем прослуховування
+sounds_like = Звучить як
+mood_danceable = Танцювальна
+mood_aggressive = Агресивна
+mood_happy = Весела
+mood_party = Для вечірки
+mood_relaxed = Розслаблена
+mood_sad = Сумна
