@@ -1307,3 +1307,7 @@ interface_panel_side = Πλευρά
 interface_panel_side_description = Σε ποια πλευρά της σελίδας είναι η στήλη λιστών.
 interface_queue_side = Πλευρά στήλης ουράς και στίχων
 interface_queue_side_description = Σε ποια πλευρά ανοίγει η στήλη ουράς και στίχων.
+artist_about = About
+artist_similar = Similar artists
+artist_info_link = More about this artist
+radio_from_server = From your server

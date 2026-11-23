@@ -1307,3 +1307,7 @@ interface_panel_side = צד
 interface_panel_side_description = באיזה צד של הדף נמצאת עמודת הרשימות.
 interface_queue_side = צד עמודת התור והמילים
 interface_queue_side_description = באיזה צד נפתחת עמודת התור והמילים.
+artist_about = About
+artist_similar = Similar artists
+artist_info_link = More about this artist
+radio_from_server = From your server

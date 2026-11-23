@@ -1308,3 +1308,7 @@ interface_panel_side = Côté
 interface_panel_side_description = De quel côté de la page se trouve la colonne des playlists.
 interface_queue_side = Côté de la colonne file et paroles
 interface_queue_side_description = De quel côté de la page s'ouvre la colonne file d'attente et paroles.
+artist_about = About
+artist_similar = Similar artists
+artist_info_link = More about this artist
+radio_from_server = From your server

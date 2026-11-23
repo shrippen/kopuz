@@ -1275,3 +1275,7 @@ interface_panel_side = Oldal
 interface_panel_side_description = Az oldal melyik szélén van a lejátszási listák oszlopa.
 interface_queue_side = A sor és dalszöveg oszlop oldala
 interface_queue_side_description = Melyik oldalon nyílik a dokkolt sor és dalszöveg oszlop.
+artist_about = About
+artist_similar = Similar artists
+artist_info_link = More about this artist
+radio_from_server = From your server

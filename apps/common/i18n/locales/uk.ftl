@@ -1323,3 +1323,7 @@ interface_panel_side = Бік
 interface_panel_side_description = З якого боку сторінки стоїть колонка плейлистів.
 interface_queue_side = Бік колонки черги й тексту
 interface_queue_side_description = З якого боку відкривається колонка черги й тексту.
+artist_about = About
+artist_similar = Similar artists
+artist_info_link = More about this artist
+radio_from_server = From your server

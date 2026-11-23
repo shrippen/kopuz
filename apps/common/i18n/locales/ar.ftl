@@ -1313,3 +1313,7 @@ interface_panel_side = الجانب
 interface_panel_side_description = في أي جانب من الصفحة يكون عمود قوائم التشغيل.
 interface_queue_side = جانب عمود الانتظار والكلمات
 interface_queue_side_description = في أي جانب يُفتح عمود قائمة الانتظار والكلمات.
+artist_about = About
+artist_similar = Similar artists
+artist_info_link = More about this artist
+radio_from_server = From your server

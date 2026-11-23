@@ -1323,3 +1323,7 @@ interface_panel_side = Strona
 interface_panel_side_description = Po której stronie strony jest kolumna playlist.
 interface_queue_side = Strona kolumny kolejki i tekstu
 interface_queue_side_description = Po której stronie otwiera się kolumna kolejki i tekstu.
+artist_about = About
+artist_similar = Similar artists
+artist_info_link = More about this artist
+radio_from_server = From your server

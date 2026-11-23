@@ -1305,3 +1305,7 @@ interface_panel_side = பக்கம்
 interface_panel_side_description = பிளேலிஸ்ட் நெடுவரிசை பக்கத்தின் எந்தப் பக்கம்.
 interface_queue_side = வரிசை, வரிகள் நெடுவரிசையின் பக்கம்
 interface_queue_side_description = வரிசையும் வரிகளும் எந்தப் பக்கம் திறக்கும்.
+artist_about = About
+artist_similar = Similar artists
+artist_info_link = More about this artist
+radio_from_server = From your server

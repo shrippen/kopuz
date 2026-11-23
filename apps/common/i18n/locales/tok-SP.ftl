@@ -1288,3 +1288,7 @@ interface_panel_side = poka
 interface_panel_side_description = kulupu kalama li lon poka seme.
 interface_queue_side = poka pi linja kalama
 interface_queue_side_description = linja kalama en nimi li open lon poka seme.
+artist_about = About
+artist_similar = Similar artists
+artist_info_link = More about this artist
+radio_from_server = From your server

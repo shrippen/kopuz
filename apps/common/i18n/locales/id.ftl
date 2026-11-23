@@ -1269,3 +1269,7 @@ interface_panel_side = Sisi
 interface_panel_side_description = Di sisi mana kolom daftar putar berada.
 interface_queue_side = Sisi kolom antrean dan lirik
 interface_queue_side_description = Di sisi mana kolom antrean dan lirik terbuka.
+artist_about = About
+artist_similar = Similar artists
+artist_info_link = More about this artist
+radio_from_server = From your server

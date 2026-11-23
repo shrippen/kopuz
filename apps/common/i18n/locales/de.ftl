@@ -1276,3 +1276,7 @@ interface_panel_side = Seite
 interface_panel_side_description = Auf welcher Seite der Seite die Playlist-Spalte steht.
 interface_queue_side = Seite der Warteschlangen- und Songtext-Spalte
 interface_queue_side_description = Auf welcher Seite die angedockte Warteschlange und der Songtext öffnen.
+artist_about = Über
+artist_similar = Ähnliche Künstler
+artist_info_link = Mehr zu diesem Künstler
+radio_from_server = Von deinem Server

@@ -1275,3 +1275,7 @@ interface_panel_side = 位置
 interface_panel_side_description = 播放列表栏在页面的哪一侧。
 interface_queue_side = 队列和歌词栏位置
 interface_queue_side_description = 停靠的队列和歌词栏在哪一侧打开。
+artist_about = About
+artist_similar = Similar artists
+artist_info_link = More about this artist
+radio_from_server = From your server

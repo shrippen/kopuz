@@ -1301,3 +1301,7 @@ interface_panel_side = Sida
 interface_panel_side_description = Vilken sida av sidan spellistkolumnen sitter på.
 interface_queue_side = Sida för kö- och låttextkolumnen
 interface_queue_side_description = Vilken sida den dockade kö- och låttextkolumnen öppnas på.
+artist_about = About
+artist_similar = Similar artists
+artist_info_link = More about this artist
+radio_from_server = From your server

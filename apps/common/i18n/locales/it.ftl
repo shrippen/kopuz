@@ -1296,3 +1296,7 @@ interface_panel_side = Lato
 interface_panel_side_description = Su quale lato della pagina sta la colonna delle playlist.
 interface_queue_side = Lato della colonna coda e testi
 interface_queue_side_description = Su quale lato della pagina si apre la colonna di coda e testi.
+artist_about = About
+artist_similar = Similar artists
+artist_info_link = More about this artist
+radio_from_server = From your server

@@ -1301,3 +1301,7 @@ interface_panel_side = Kant
 interface_panel_side_description = Aan welke kant van de pagina de afspeellijstkolom staat.
 interface_queue_side = Kant van wachtrij- en songtekstkolom
 interface_queue_side_description = Aan welke kant de vastgezette wachtrij- en songtekstkolom opent.
+artist_about = About
+artist_similar = Similar artists
+artist_info_link = More about this artist
+radio_from_server = From your server

@@ -1315,3 +1315,7 @@ interface_panel_side = Parte
 interface_panel_side_description = Pe ce parte a paginii stă coloana de playlisturi.
 interface_queue_side = Partea coloanei de coadă și versuri
 interface_queue_side_description = Pe ce parte se deschide coloana de coadă și versuri.
+artist_about = About
+artist_similar = Similar artists
+artist_info_link = More about this artist
+radio_from_server = From your server
