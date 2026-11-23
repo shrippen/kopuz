@@ -14,7 +14,7 @@ use gpui_kit::{
     Styled, Subscription, UniformListScrollHandle, Window, div, px, uniform_list,
 };
 use store::layout::QueueStyle;
-use store::{ConfigModel, LayoutModel, PlaylistsModel, QueueModel, Target};
+use store::{ConfigModel, LayoutModel, PlaylistsModel, QueueModel, SourcesModel, Target};
 
 // Above this point in a row a drop lands before it, below it after.
 const DROP_SPLIT: Pixels = px(23.);
@@ -320,6 +320,7 @@ impl QueueView {
         let summary = queue.summary();
         let upcoming = queue.upcoming().len();
         let empty = queue.is_empty();
+        let can_mix = SourcesModel::global(cx).read(cx).capabilities().mix_radio;
         let place = format!("{}/{}", summary.position.max(1), summary.count);
         let label = SharedString::from(match summary.total_ms {
             Some(total) => format!("{place} • {}", duration(total)),
@@ -359,6 +360,14 @@ impl QueueView {
                     .disabled(upcoming == 0)
                     .on_click(cx.listener(|this, _, _, cx| this.clear_upcoming(cx))),
             )
+            .when(can_mix, |bar| {
+                bar.child(
+                    tool("queue-mix", icons::RADIO, cx)
+                        .tooltip(t("mix_from_queue"))
+                        .disabled(empty)
+                        .on_click(|_, _, cx| store::actions::start_queue_mix(cx)),
+                )
+            })
             .child(
                 tool("queue-save", SAVE, cx)
                     .tooltip(t("save_queue_as_playlist"))
