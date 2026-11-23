@@ -227,8 +227,6 @@ fn album_of(item: &Metadata) -> Option<(Album, Vec<Track>)> {
             year,
             cover: Some(art),
             artist_id: None,
-            last_played: None,
-            rating: None,
         },
         tracks,
     ))

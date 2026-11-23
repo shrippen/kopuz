@@ -74,9 +74,6 @@ pub struct SubsonicAlbum {
     pub genre: Option<String>,
     pub year: Option<u16>,
     pub cover_art: Option<String>,
-    /// ISO-8601 time of the account's last play of the album.
-    pub played: Option<String>,
-    pub user_rating: Option<u32>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -125,16 +122,6 @@ pub struct SubsonicReplayGain {
     pub album_gain: Option<f32>,
     pub track_peak: Option<f32>,
     pub album_peak: Option<f32>,
-}
-
-impl SubsonicAlbum {
-    pub fn last_played(&self) -> Option<i64> {
-        self.played.as_deref().and_then(stats::unix_secs)
-    }
-
-    pub fn rating(&self) -> Option<u8> {
-        stats::stars(self.user_rating)
-    }
 }
 
 impl SubsonicSong {
@@ -911,13 +898,13 @@ mod tests {
     }
 
     #[test]
-    fn album_stats_parse_and_zero_rating_is_none() {
-        let album: SubsonicAlbum = serde_json::from_value(serde_json::json!({
-            "id": "a", "name": "N", "played": "2026-11-20T19:04:11+01:00", "userRating": 0
+    fn an_offset_play_time_parses_and_zero_stars_is_no_rating() {
+        let song: SubsonicSong = serde_json::from_value(serde_json::json!({
+            "id": "s", "title": "T", "played": "2026-11-20T19:04:11+01:00", "userRating": 0
         }))
         .unwrap();
-        assert_eq!(album.last_played(), Some(1_795_197_851));
-        assert_eq!(album.rating(), None);
+        assert_eq!(song.last_played(), Some(1_795_197_851));
+        assert_eq!(song.rating(), None);
     }
 
     #[test]

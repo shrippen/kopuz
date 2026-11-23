@@ -177,8 +177,6 @@ impl Source for Jellyfin {
                             .production_year
                             .map(|y| u16::try_from(y).unwrap_or(u16::MAX))
                             .unwrap_or(0),
-                        last_played: None,
-                        rating: None,
                     });
                 }
                 start += count;

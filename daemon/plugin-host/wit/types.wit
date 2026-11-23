@@ -79,9 +79,6 @@ interface types {
         year: u16,
         cover: option<string>,
         artist-id: option<string>,
-        /// Unix seconds of the account's last play of any of its tracks.
-        last-played: option<s64>,
-        rating: option<u8>,
     }
 
     record artist-listing {

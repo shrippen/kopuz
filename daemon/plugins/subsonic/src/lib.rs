@@ -328,8 +328,6 @@ impl Source for Subsonic {
                     year: album.year.unwrap_or(0),
                     cover: Some(cover_ref(&self.service, album.cover_art.as_deref())),
                     artist_id: album.artist_id.clone(),
-                    last_played: album.last_played(),
-                    rating: album.rating(),
                 });
 
                 let songs = self
