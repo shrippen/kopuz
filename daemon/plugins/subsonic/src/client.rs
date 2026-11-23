@@ -6,6 +6,8 @@ use kopuz_plugin_sdk::{ReplayGain, SourceError};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 
+use crate::stats;
+
 const SUBSONIC_API_VERSION: &str = "1.16.1";
 const CLIENT_NAME: &str = "kopuz";
 
@@ -69,6 +71,9 @@ pub struct SubsonicAlbum {
     pub genre: Option<String>,
     pub year: Option<u16>,
     pub cover_art: Option<String>,
+    /// ISO-8601 time of the account's last play of the album.
+    pub played: Option<String>,
+    pub user_rating: Option<u32>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -94,6 +99,10 @@ pub struct SubsonicSong {
     pub disc_number: Option<u32>,
     pub cover_art: Option<String>,
     pub replay_gain: Option<SubsonicReplayGain>,
+    pub play_count: Option<u32>,
+    /// ISO-8601 time of the account's last play.
+    pub played: Option<String>,
+    pub user_rating: Option<u32>,
 }
 
 /// One entry of an OpenSubsonic song's `artists` list.
@@ -115,7 +124,25 @@ pub struct SubsonicReplayGain {
     pub album_peak: Option<f32>,
 }
 
+impl SubsonicAlbum {
+    pub fn last_played(&self) -> Option<i64> {
+        self.played.as_deref().and_then(stats::unix_secs)
+    }
+
+    pub fn rating(&self) -> Option<u8> {
+        stats::stars(self.user_rating)
+    }
+}
+
 impl SubsonicSong {
+    pub fn last_played(&self) -> Option<i64> {
+        self.played.as_deref().and_then(stats::unix_secs)
+    }
+
+    pub fn rating(&self) -> Option<u8> {
+        stats::stars(self.user_rating)
+    }
+
     pub fn replay_gain(&self) -> ReplayGain {
         let Some(gain) = &self.replay_gain else {
             return ReplayGain::default();
@@ -564,6 +591,14 @@ impl SubsonicClient {
             .map(|_| ())
     }
 
+    pub fn set_rating(&self, item_id: &str, stars: u8) -> Result<(), SourceError> {
+        let params = vec![
+            ("id".to_string(), item_id.to_string()),
+            ("rating".to_string(), stars.to_string()),
+        ];
+        self.call::<EmptyData>("setRating.view", params).map(|_| ())
+    }
+
     pub fn stream_url(&self, item_id: &str) -> Result<String, SourceError> {
         let mut params = self.auth_params();
         params.push(("id".to_string(), item_id.to_string()));
@@ -737,6 +772,39 @@ mod tests {
     /// The radio path reads these shapes and nothing else. A rename or a wrong
     /// nesting level deserializes to an empty list rather than an error, which
     /// reaches the user as a radio button that does nothing.
+    #[test]
+    fn song_stats_parse() {
+        let song: SubsonicSong = serde_json::from_value(serde_json::json!({
+            "id": "s", "title": "T", "playCount": 7,
+            "played": "2026-11-20T18:04:11.123Z", "userRating": 4
+        }))
+        .unwrap();
+        assert_eq!(song.play_count, Some(7));
+        assert_eq!(song.last_played(), Some(1_795_197_851));
+        assert_eq!(song.rating(), Some(4));
+    }
+
+    #[test]
+    fn album_stats_parse_and_zero_rating_is_none() {
+        let album: SubsonicAlbum = serde_json::from_value(serde_json::json!({
+            "id": "a", "name": "N", "played": "2026-11-20T19:04:11+01:00", "userRating": 0
+        }))
+        .unwrap();
+        assert_eq!(album.last_played(), Some(1_795_197_851));
+        assert_eq!(album.rating(), None);
+    }
+
+    #[test]
+    fn a_song_without_stats_reports_none() {
+        let song: SubsonicSong =
+            serde_json::from_value(serde_json::json!({"id": "s", "title": "T", "played": "never"}))
+                .unwrap();
+        assert_eq!(
+            (song.play_count, song.last_played(), song.rating()),
+            (None, None, None)
+        );
+    }
+
     #[test]
     fn similar_songs_response_parses() {
         let data: GetSimilarSongsData = parse(serde_json::json!({

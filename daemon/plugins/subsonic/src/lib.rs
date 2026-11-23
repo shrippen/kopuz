@@ -5,6 +5,7 @@
 //! decides the prefix the host files their items under.
 
 mod client;
+mod stats;
 
 use std::collections::HashSet;
 
@@ -91,6 +92,7 @@ fn song_to_track(service: &str, song: SubsonicSong, album: Option<(&str, &str, &
         .clone()
         .unwrap_or_else(|| fallback_artist.to_string());
     let credits = credits_of(&song, &artist);
+    let (play_count, last_played, rating) = (song.play_count, song.last_played(), song.rating());
     if let Some(bits) = song.bit_depth.and_then(|bits| u8::try_from(bits).ok()) {
         kopuz_plugin_sdk::report_bit_depth(&song.id, bits);
     }
@@ -112,6 +114,9 @@ fn song_to_track(service: &str, song: SubsonicSong, album: Option<(&str, &str, &
         replay_gain: song.replay_gain(),
         item_id: song.id,
         title: song.title,
+        play_count,
+        last_played,
+        rating,
         ..Track::default()
     }
 }
@@ -215,8 +220,8 @@ impl Source for Subsonic {
                     year: album.year.unwrap_or(0),
                     cover: Some(cover_ref(&self.service, album.cover_art.as_deref())),
                     artist_id: album.artist_id.clone(),
-                    last_played: None,
-                    rating: None,
+                    last_played: album.last_played(),
+                    rating: album.rating(),
                 });
 
                 let songs = self
@@ -351,6 +356,10 @@ impl Source for Subsonic {
         } else {
             self.client.unstar(item_id)
         }
+    }
+
+    fn set_rating(&self, item_id: &str, stars: u8) -> Result<()> {
+        self.client.set_rating(item_id, stars)
     }
 
     fn resolve_stream(&self, item_id: &str, _: StreamQuality) -> Result<StreamInfo> {
