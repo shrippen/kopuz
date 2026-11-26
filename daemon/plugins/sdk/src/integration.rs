@@ -23,7 +23,8 @@ pub mod bindings {
 }
 
 pub use bindings::exports::kopuz::plugin::integration::{
-    AudioFrame, NowPlaying, PlaybackEvent, Setting, Started,
+    AudioFrame, ChoiceOption, Control, ControlKind, NowPlaying, PlaybackEvent, Section, Setting,
+    Slider, Started,
 };
 
 use crate::Result;
@@ -74,6 +75,21 @@ pub trait Integration: Sized + 'static {
     fn on_audio(&self, frames: Vec<AudioFrame>) {
         let _ = frames;
     }
+
+    /// What to show now, for a manifest that sets `panel = true`. Asked a few
+    /// times a second while someone looks, so answer from what is held.
+    fn panel(&self) -> Vec<Section> {
+        Vec::new()
+    }
+
+    /// The person changed a control: `value` for a meter, toggle, slider or
+    /// button, `text` for a choice. The host calls it again with the last
+    /// value of each toggle, slider and choice each time the integration
+    /// opens, so an error for a device that is gone is only logged.
+    fn act(&self, section: &str, control: &str, value: f32, text: &str) -> Result<()> {
+        let _ = (section, control, value, text);
+        Ok(())
+    }
 }
 
 #[macro_export]
@@ -107,6 +123,18 @@ macro_rules! export_integration {
             }
             fn on_audio(&self, frames: ::std::vec::Vec<$crate::integration::AudioFrame>) {
                 $crate::integration::Integration::on_audio(&self.0, frames)
+            }
+            fn panel(&self) -> ::std::vec::Vec<$crate::integration::Section> {
+                $crate::integration::Integration::panel(&self.0)
+            }
+            fn act(
+                &self,
+                section: ::std::string::String,
+                control: ::std::string::String,
+                value: f32,
+                text: ::std::string::String,
+            ) -> ::std::result::Result<(), $crate::SourceError> {
+                $crate::integration::Integration::act(&self.0, &section, &control, value, &text)
             }
         }
 

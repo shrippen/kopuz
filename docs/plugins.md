@@ -198,6 +198,7 @@ network = ["$server"]
 [integration]
 server = "url"               # the url field whose host `$server` names
 listens = ["playback"]       # what the host tells it as it happens; see below
+# panel = true               # shows live controls; see below
 # icon = "M12 2L2 7..."      # optional SVG path in a 24x24 box
 
 [[integration.field]]
@@ -274,9 +275,21 @@ An integration hears only what its `listens` list names:
   rather than hearing them late. A device that pulses to the music needs
   nothing more than this.
 
+An integration with `panel = true` shows live controls, such as a status line,
+a level meter, a button, a toggle, a slider or a choice. `panel` returns
+sections of controls, asked a few times a second while someone looks, so answer
+from what the plugin holds. `act` is called when the person changes one: with
+`value` for a meter, toggle, slider or button, and `text` for a choice. The
+last value of each toggle, slider and choice is kept with the plugin's answers
+and passed to `act` again each time the integration opens, so a device's
+setting survives a restart without the plugin storing it; an error from that
+call is logged and the value kept. A control with `quick` set is also offered
+from the player. Labels are shown as written.
+
 [`daemon/plugins/examples/webhook`](../daemon/plugins/examples/webhook) is a
 complete one: it posts each playback event to an address as JSON, and each
-beat too when its **Post beats** toggle is on. An integration plugin is listed in the marketplace like any
+beat too when its **Post beats** toggle is on. Its panel shows how the last
+post went, a **Send test** button and a **Hold posts** toggle. An integration plugin is listed in the marketplace like any
 other, with an empty `services` list.
 
 ## Installing by hand

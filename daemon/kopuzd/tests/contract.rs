@@ -3920,6 +3920,46 @@ async fn integrations_agree_across_transports_and_carry_no_secret() {
     );
 }
 
+/// A built-in integration has no panel, so the list is empty and acting on
+/// an integration this daemon does not run is refused the same way.
+#[tokio::test]
+async fn integration_panels_agree_across_transports() {
+    let pair = spawn_pair().await;
+    let local = pair.local.integration_panels().await.expect("local");
+    assert!(local.is_empty());
+    assert_eq!(local, pair.wire.integration_panels().await.expect("wire"));
+
+    let act = |value: f32| {
+        (
+            "plugin:none".to_string(),
+            String::new(),
+            "on".to_string(),
+            value,
+        )
+    };
+    let (id, section, control, value) = act(1.0);
+    let local = pair
+        .local
+        .act_on_integration(
+            id.clone(),
+            section.clone(),
+            control.clone(),
+            value,
+            String::new(),
+        )
+        .await
+        .err()
+        .map(|error| error.code);
+    assert_eq!(local, Some(api::ErrorCode::NotFound));
+    let wire = pair
+        .wire
+        .act_on_integration(id, section, control, value, String::new())
+        .await
+        .err()
+        .map(|error| error.code);
+    assert_eq!(local, wire);
+}
+
 /// The profile list is read from the daemon's machine, and connecting takes
 /// only an id from it, never a path the daemon did not list.
 #[tokio::test]

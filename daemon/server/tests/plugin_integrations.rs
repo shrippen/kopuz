@@ -5,7 +5,7 @@
 use std::sync::{Arc, Mutex};
 
 use plugin_host::manifest::Manifest;
-use plugin_host::{Code, Integration, Origin, Plugin, wit};
+use plugin_host::{Code, Integration, Origin, Plugin, Setpoint, wit};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 /// Answers every request with `status` and keeps what it was sent.
@@ -227,4 +227,122 @@ async fn an_integration_hears_the_beats_it_asked_for() {
     let beat: serde_json::Value = serde_json::from_str(body).expect("JSON");
     assert_eq!(beat["event"], "beat");
     assert_eq!(beat["level"], 0.5);
+}
+
+fn controls(sections: &[wit::Section]) -> &[wit::Control] {
+    assert_eq!(sections.len(), 1, "{sections:?}");
+    &sections[0].controls
+}
+
+fn control<'a>(sections: &'a [wit::Section], key: &str) -> &'a wit::Control {
+    controls(sections)
+        .iter()
+        .find(|control| control.key == key)
+        .unwrap_or_else(|| panic!("no control {key}"))
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_panel_shows_the_last_post_and_takes_what_the_person_does() {
+    let hook = Hook::start(200).await;
+    let integration = Integration::new(webhook(), answers(&hook.url, ""));
+
+    let shown = integration.panel().await.expect("ran");
+    assert_eq!(control(&shown, "last").text, "none yet");
+    assert!(matches!(
+        control(&shown, "last").kind,
+        wit::ControlKind::Status
+    ));
+    assert!(matches!(
+        control(&shown, "paused").kind,
+        wit::ControlKind::Toggle
+    ));
+
+    // A button reaches the plugin, which posts and then reports it.
+    let acted = integration.act("", "test", 0.0, "").await.expect("ran");
+    assert!(acted.is_ok(), "{acted:?}");
+    assert_eq!(hook.received().len(), 1);
+    assert_eq!(
+        control(&integration.panel().await.expect("ran"), "last").text,
+        "ok"
+    );
+
+    // A toggle changes what the plugin does.
+    integration
+        .act("", "paused", 1.0, "")
+        .await
+        .expect("ran")
+        .expect("accepted");
+    assert_eq!(
+        control(&integration.panel().await.expect("ran"), "paused").value,
+        1.0
+    );
+    integration
+        .on_playback(&wit::PlaybackEvent::Stopped)
+        .await
+        .expect("told");
+    assert_eq!(hook.received().len(), 1, "held back while paused");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_failed_post_shows_in_the_panel_and_an_act_error_comes_back() {
+    let hook = Hook::start(500).await;
+    let integration = Integration::new(webhook(), answers(&hook.url, ""));
+
+    let acted = integration.act("", "test", 0.0, "").await.expect("ran");
+    assert!(
+        matches!(&acted, Err(wit::SourceError::Backend(message)) if message.contains("500")),
+        "{acted:?}"
+    );
+    assert_eq!(
+        control(&integration.panel().await.expect("ran"), "last").text,
+        "failed"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn remembered_controls_are_put_back_each_time_the_instance_opens() {
+    let hook = Hook::start(200).await;
+    let setpoints = || {
+        vec![
+            Setpoint {
+                section: String::new(),
+                control: "paused".into(),
+                value: 1.0,
+                text: String::new(),
+            },
+            // A control the plugin does not know is accepted and ignored.
+            Setpoint {
+                section: "gone".into(),
+                control: "volume".into(),
+                value: 0.3,
+                text: String::new(),
+            },
+        ]
+    };
+    let first = Integration::new(webhook(), answers(&hook.url, ""));
+    first.restore(setpoints());
+    assert_eq!(
+        control(&first.panel().await.expect("ran"), "paused").value,
+        1.0
+    );
+
+    first
+        .act("", "paused", 0.0, "")
+        .await
+        .expect("ran")
+        .expect("accepted");
+    assert_eq!(
+        control(&first.panel().await.expect("ran"), "paused").value,
+        0.0
+    );
+    first.close().await;
+
+    // A closed copy stays closed; the host opens a fresh one with what it stored.
+    let second = Integration::new(webhook(), answers(&hook.url, ""));
+    second.restore(setpoints());
+    assert_eq!(
+        control(&second.panel().await.expect("ran"), "paused").value,
+        1.0,
+        "the stored value wins over a fresh instance"
+    );
 }

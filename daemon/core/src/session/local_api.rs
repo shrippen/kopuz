@@ -1254,6 +1254,23 @@ impl api::SourceApi for LocalApi {
         self.integrations()?.clear(&id).await
     }
 
+    async fn integration_panels(&self) -> Result<Vec<api::IntegrationPanel>, ApiError> {
+        Ok(self.integrations()?.panels().await)
+    }
+
+    async fn act_on_integration(
+        &self,
+        id: String,
+        section: String,
+        control: String,
+        value: f32,
+        text: String,
+    ) -> Result<(), ApiError> {
+        self.integrations()?
+            .act(&id, &section, &control, value, &text)
+            .await
+    }
+
     async fn authenticate_integration(&self, id: String) -> Result<api::IntegrationInfo, ApiError> {
         self.integrations()?.authenticate(&id).await
     }

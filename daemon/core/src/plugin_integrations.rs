@@ -8,10 +8,10 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use api::{
     ApiError, ChoiceOption, ConnectKind, ErrorReason, FieldKind, FieldSpec, FieldValue, Icon,
-    IntegrationInfo, Text,
+    IntegrationInfo, IntegrationPanel, PanelControl, PanelControlKind, PanelSection, Text,
 };
 use plugin_host::manifest::{self, Manifest};
-use plugin_host::{Integration, Plugin, wit};
+use plugin_host::{Integration, Plugin, Setpoint, wit};
 
 use crate::credentials::{CredentialStore, Credentials, PluginAnswers};
 
@@ -21,6 +21,10 @@ pub const ID_PREFIX: &str = "plugin:";
 /// The toggle the host puts above a plugin's own fields; a manifest cannot
 /// name a field with a `$`.
 const ENABLED: &str = "$enabled";
+
+/// Where a panel control's last value is kept among a plugin's answers, as
+/// `$panel/<section>/<control>`; a manifest cannot name a field with a `$`.
+const PANEL_PREFIX: &str = "$panel/";
 
 const FALLBACK_ICON: &str = "fa-solid fa-puzzle-piece";
 
@@ -244,6 +248,102 @@ fn merge(
     Ok(answers)
 }
 
+/// What one remembered control is stored as, under its `$panel/` key.
+#[derive(serde::Serialize, serde::Deserialize)]
+struct Remembered {
+    section: String,
+    control: String,
+    value: f32,
+    text: String,
+}
+
+fn panel_key(section: &str, control: &str) -> String {
+    format!("{PANEL_PREFIX}{section}/{control}")
+}
+
+/// The controls to put back when an instance opens, from what is stored.
+fn setpoints(answers: &PluginAnswers) -> Vec<Setpoint> {
+    answers
+        .iter()
+        .filter(|(key, _)| key.starts_with(PANEL_PREFIX))
+        .filter_map(|(_, stored)| serde_json::from_str::<Remembered>(stored).ok())
+        .map(|kept| Setpoint {
+            section: kept.section,
+            control: kept.control,
+            value: kept.value,
+            text: kept.text,
+        })
+        .collect()
+}
+
+/// Whether a control keeps its value from one run to the next.
+fn remembered(kind: &wit::ControlKind) -> bool {
+    matches!(
+        kind,
+        wit::ControlKind::Toggle | wit::ControlKind::Slider(_) | wit::ControlKind::Choice(_)
+    )
+}
+
+fn panel_kind(kind: wit::ControlKind) -> PanelControlKind {
+    match kind {
+        wit::ControlKind::Status => PanelControlKind::Status,
+        wit::ControlKind::Meter => PanelControlKind::Meter,
+        wit::ControlKind::Button => PanelControlKind::Button,
+        wit::ControlKind::Toggle => PanelControlKind::Toggle,
+        wit::ControlKind::Slider(slider) => PanelControlKind::Slider {
+            min: slider.min,
+            max: slider.max,
+            step: slider.step,
+        },
+        wit::ControlKind::Choice(options) => PanelControlKind::Choice {
+            options: options
+                .into_iter()
+                .map(|option| ChoiceOption {
+                    value: option.value,
+                    label: Text::Literal(option.label),
+                    unavailable: None,
+                })
+                .collect(),
+        },
+    }
+}
+
+fn panel_sections(sections: Vec<wit::Section>) -> Vec<PanelSection> {
+    sections
+        .into_iter()
+        .map(|section| PanelSection {
+            key: section.key,
+            title: section.title,
+            controls: section
+                .controls
+                .into_iter()
+                .map(|control| PanelControl {
+                    key: control.key,
+                    label: control.label,
+                    kind: panel_kind(control.kind),
+                    value: control.value,
+                    text: control.text,
+                    quick: control.quick,
+                })
+                .collect(),
+        })
+        .collect()
+}
+
+/// Whether the plugin shows a panel at all.
+fn has_panel(integration: &Integration) -> bool {
+    integration
+        .plugin()
+        .manifest()
+        .integration
+        .as_ref()
+        .is_some_and(|spec| spec.panel)
+}
+
+fn plugin_error(error: plugin_host::PluginError) -> ApiError {
+    ApiError::internal(error.to_string())
+}
+
 /// The integration plugins turned on, each with one instance kept open.
 pub struct PluginIntegrations {
     credentials: CredentialStore,
@@ -275,7 +375,10 @@ impl PluginIntegrations {
             if let Some(old) = old {
                 old.close().await;
             }
-            let check = Arc::new(Integration::new(Arc::clone(&plugin), wanted));
+            let check = Integration::new(Arc::clone(&plugin), wanted);
+            // The copy that checks keeps running, so it opens with the panel's values too.
+            check.restore(setpoints(&answers));
+            let check = Arc::new(check);
             match check.validate().await {
                 Ok(Ok(())) => {}
                 Ok(Err(error)) => return Err(rejected(&error)),
@@ -317,6 +420,100 @@ impl PluginIntegrations {
         Ok(())
     }
 
+    /// The running integration `id` names.
+    fn running_one(&self, id: &str) -> Result<Arc<Integration>, ApiError> {
+        let plugin = plugin_of(id).ok_or_else(|| ApiError::not_found("no such integration"))?;
+        self.running()
+            .into_iter()
+            .find(|live| live.plugin().id() == plugin.id())
+            .ok_or_else(|| ApiError::invalid_input("the integration is not running"))
+    }
+
+    /// What the running integration `id` shows now.
+    pub async fn panel(&self, id: &str) -> Result<IntegrationPanel, ApiError> {
+        let live = self.running_one(id)?;
+        let sections = live.panel().await.map_err(plugin_error)?;
+        Ok(IntegrationPanel {
+            id: id.to_string(),
+            name: Text::Literal(live.plugin().manifest().name.clone()),
+            sections: panel_sections(sections),
+        })
+    }
+
+    /// What every running integration that has a panel shows now. One that
+    /// does not answer is left out, so it cannot hide the others.
+    pub async fn panels(&self) -> Vec<IntegrationPanel> {
+        let asked = self
+            .running()
+            .into_iter()
+            .filter(|live| has_panel(live))
+            .map(|live| async move {
+                let id = format!("{ID_PREFIX}{}", live.plugin().id());
+                match self.panel(&id).await {
+                    Ok(panel) => Some(panel),
+                    Err(error) => {
+                        tracing::warn!(%id, %error, "an integration showed no panel");
+                        None
+                    }
+                }
+            });
+        let mut panels: Vec<IntegrationPanel> = futures_util::future::join_all(asked)
+            .await
+            .into_iter()
+            .flatten()
+            .collect();
+        panels.sort_by(|a, b| a.id.cmp(&b.id));
+        panels
+    }
+
+    /// Pass a changed control to the plugin. A toggle, slider or choice is
+    /// kept once the plugin took it, and put back whenever it opens again.
+    pub async fn act(
+        &self,
+        id: &str,
+        section: &str,
+        control: &str,
+        value: f32,
+        text: &str,
+    ) -> Result<(), ApiError> {
+        let live = self.running_one(id)?;
+        match live.act(section, control, value, text).await {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => return Err(rejected(&error)),
+            Err(error) => return Err(plugin_error(error)),
+        }
+        let shown = live.panel().await.map_err(plugin_error)?;
+        let keeps = shown
+            .iter()
+            .filter(|shown| shown.key == section)
+            .flat_map(|shown| &shown.controls)
+            .any(|shown| shown.key == control && remembered(&shown.kind));
+        if !keeps {
+            return Ok(());
+        }
+        let kept = serde_json::to_string(&Remembered {
+            section: section.to_string(),
+            control: control.to_string(),
+            value,
+            text: text.to_string(),
+        })
+        .map_err(|error| ApiError::internal(error.to_string()))?;
+        let (plugin_id, key) = (live.plugin().id().to_string(), panel_key(section, control));
+        let held = self
+            .credentials
+            .update(move |credentials| {
+                credentials
+                    .plugins
+                    .entry(plugin_id)
+                    .or_default()
+                    .insert(key, kept);
+            })
+            .await
+            .map_err(|error| ApiError::internal(format!("database error: {error}")))?;
+        live.restore(setpoints(&held.plugin(live.plugin().id())));
+        Ok(())
+    }
+
     /// The running integrations, brought in step with the registry and the
     /// answers first: a new build of a plugin is swapped in, changed answers
     /// reopen it, and one turned off or no longer loaded is closed.
@@ -341,7 +538,9 @@ impl PluginIntegrations {
                 }
                 old => {
                     retired.extend(old);
-                    Arc::new(Integration::new(Arc::clone(&plugin), wanted))
+                    let live = Integration::new(Arc::clone(&plugin), wanted);
+                    live.restore(setpoints(&answers));
+                    Arc::new(live)
                 }
             };
             kept.insert(plugin.id().to_string(), live);

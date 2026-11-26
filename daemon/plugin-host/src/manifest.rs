@@ -40,6 +40,10 @@ pub struct Integration {
     /// What the host tells it as it happens; nothing it does not list.
     #[serde(default)]
     pub listens: Vec<Listen>,
+    /// Whether it shows live controls: asked what to show, and told when the
+    /// person changes one.
+    #[serde(default)]
+    pub panel: bool,
     #[serde(default, rename = "field")]
     pub fields: Vec<Field>,
 }
@@ -549,6 +553,15 @@ mod tests {
         ];
         assert_eq!(integration.server_url(&answers), "ws://127.0.0.1:12345");
         assert_eq!(integration.server_url(&[]), "");
+    }
+
+    #[test]
+    fn a_panel_is_off_unless_the_manifest_asks_for_one() {
+        let plain = Manifest::parse(LIGHTS).expect("manifest");
+        assert!(!plain.integration.expect("integration").panel);
+        let shown = LIGHTS.replace("listens = ", "panel = true\n        listens = ");
+        let manifest = Manifest::parse(&shown).expect("manifest");
+        assert!(manifest.integration.expect("integration").panel);
     }
 
     #[test]

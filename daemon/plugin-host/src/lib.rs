@@ -15,7 +15,7 @@ mod registry;
 mod session;
 
 pub use host::{Decryption, Opener};
-pub use integration::Integration;
+pub use integration::{Integration, Setpoint};
 pub use plugin::{Code, Origin, Plugin};
 pub use registry::{
     Bundled, COMPONENT_FILE, MANIFEST_FILE, Pending, Registry, host_set, plugin_dirs,
@@ -51,7 +51,8 @@ mod integration_bindings {
 pub mod wit {
     pub use crate::bindings::kopuz::plugin::types::*;
     pub use crate::integration_bindings::exports::kopuz::plugin::integration::{
-        AudioFrame, NowPlaying, PlaybackEvent, Setting, Started,
+        AudioFrame, ChoiceOption, Control, ControlKind, NowPlaying, PlaybackEvent, Section,
+        Setting, Slider, Started,
     };
 }
 

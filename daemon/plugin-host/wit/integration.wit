@@ -62,6 +62,50 @@ interface integration {
         beat: bool,
     }
 
+    record slider {
+        min: f32,
+        max: f32,
+        step: f32,
+    }
+
+    record choice-option {
+        value: string,
+        label: string,
+    }
+
+    /// How a control is drawn and what pressing or moving it means.
+    variant control-kind {
+        /// A line of text; `text` is what it says.
+        status,
+        /// A level from 0 to 1 in `value`, redrawn as it changes.
+        meter,
+        /// Pressing it acts with value 0.
+        button,
+        /// On when `value` is 1.
+        toggle,
+        slider(slider),
+        /// `text` is the selected option's value.
+        choice(list<choice-option>),
+    }
+
+    record control {
+        /// Stable within its section; acting names it.
+        key: string,
+        label: string,
+        kind: control-kind,
+        value: f32,
+        text: string,
+        /// Also offered from the player, not only in settings.
+        quick: bool,
+    }
+
+    record section {
+        /// Stable, such as a device's id; empty for the plugin's own section.
+        key: string,
+        title: string,
+        controls: list<control>,
+    }
+
     resource instance {
         constructor(settings: list<setting>);
 
@@ -78,5 +122,14 @@ interface integration {
         /// since the last call. One that falls behind misses frames rather
         /// than hearing them late.
         on-audio: func(frames: list<audio-frame>);
+
+        /// What to show now, asked only of an integration whose manifest sets
+        /// `panel`, while someone looks at it, a few times a second.
+        panel: func() -> list<section>;
+
+        /// The person changed a control: `value` for a meter, toggle, slider
+        /// or button, `text` for a choice. The host replays the last value of
+        /// each toggle, slider and choice after the instance opens.
+        act: func(section: string, control: string, value: f32, text: string) -> result<_, source-error>;
     }
 }

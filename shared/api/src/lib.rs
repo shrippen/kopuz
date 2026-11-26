@@ -74,9 +74,10 @@ pub use schema::{
 pub use sources::{
     AlbumPresentation, ArtistPresentation, BrowserProfile, BrowserSession, CheckOutcome, CheckStep,
     ConnectKind, ConnectionCheck, CredentialProvision, DraftCheck, DraftProbe, FavoritesSyncMode,
-    FolderProbe, IntegrationInfo, PageEntry, PlaylistCapability, SearchFilter, ServerProbe,
-    ServiceInfo, ServiceRef, SignInKind, SourceAccount, SourceCapabilities, SourceDraft,
-    SourceFolderEntry, SourceInfo, SourceLoginRequest,
+    FolderProbe, IntegrationInfo, IntegrationPanel, PageEntry, PanelControl, PanelControlKind,
+    PanelSection, PlaylistCapability, SearchFilter, ServerProbe, ServiceInfo, ServiceRef,
+    SignInKind, SourceAccount, SourceCapabilities, SourceDraft, SourceFolderEntry, SourceInfo,
+    SourceLoginRequest,
 };
 
 pub use updates::{AvailableUpdate, UpdateStatus};
@@ -619,6 +620,22 @@ pub trait SourceApi: Send + Sync {
     ) -> Result<IntegrationInfo, ApiError>;
 
     async fn clear_integration(&self, id: String) -> Result<(), ApiError>;
+
+    /// What each running integration plugin that has a panel shows now. Cheap
+    /// enough to ask a few times a second while someone looks.
+    async fn integration_panels(&self) -> Result<Vec<IntegrationPanel>, ApiError>;
+
+    /// The person changed a panel control: `value` for a meter, toggle, slider
+    /// or button, `text` for a choice. The last value of a toggle, slider or
+    /// choice is kept and put back when the integration next opens.
+    async fn act_on_integration(
+        &self,
+        id: String,
+        section: String,
+        control: String,
+        value: f32,
+        text: String,
+    ) -> Result<(), ApiError>;
 
     /// Run a service's web sign-in and keep the session key it returns.
     async fn authenticate_integration(&self, id: String) -> Result<IntegrationInfo, ApiError>;

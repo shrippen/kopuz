@@ -162,6 +162,8 @@ service Kopuz {
   rpc GetIntegrations(GetIntegrationsRequest) returns (IntegrationList);
   rpc SetIntegrationSettings(SetIntegrationSettingsRequest) returns (IntegrationInfo);
   rpc ClearIntegration(IntegrationId) returns (Unit);
+  rpc GetIntegrationPanels(GetIntegrationPanelsRequest) returns (IntegrationPanelList);
+  rpc ActOnIntegration(ActOnIntegrationRequest) returns (Unit);
   rpc AuthenticateIntegration(IntegrationId) returns (IntegrationInfo);
   rpc GetBrowserProfiles(GetBrowserProfilesRequest) returns (BrowserProfileList);
   rpc ConnectIntegrationFromBrowser(ConnectIntegrationFromBrowserRequest) returns (IntegrationInfo);
@@ -1310,6 +1312,66 @@ message IntegrationId {
 message SetIntegrationSettingsRequest {
   string id = 1;
   repeated FieldValue values = 2;
+}
+
+message GetIntegrationPanelsRequest {}
+
+enum PanelControlTag {
+  PANEL_CONTROL_TAG_UNSPECIFIED = 0;
+  // A line of text in `text`.
+  PANEL_CONTROL_TAG_STATUS = 1;
+  // A level from 0 to 1 in `value`.
+  PANEL_CONTROL_TAG_METER = 2;
+  PANEL_CONTROL_TAG_BUTTON = 3;
+  PANEL_CONTROL_TAG_TOGGLE = 4;
+  PANEL_CONTROL_TAG_SLIDER = 5;
+  PANEL_CONTROL_TAG_CHOICE = 6;
+}
+
+message PanelControlKind {
+  PanelControlTag tag = 1;
+  // SLIDER only.
+  float min = 2;
+  float max = 3;
+  float step = 4;
+  // CHOICE only.
+  repeated ChoiceOption options = 5;
+}
+
+message PanelControl {
+  string key = 1;
+  string label = 2;
+  PanelControlKind kind = 3;
+  float value = 4;
+  string text = 5;
+  // Also offered from the player.
+  bool quick = 6;
+}
+
+message PanelSection {
+  string key = 1;
+  string title = 2;
+  repeated PanelControl controls = 3;
+}
+
+// What a running integration plugin shows; its words are the plugin's own.
+message IntegrationPanel {
+  string id = 1;
+  Text name = 2;
+  repeated PanelSection sections = 3;
+}
+
+message IntegrationPanelList {
+  repeated IntegrationPanel panels = 1;
+}
+
+// `value` for a meter, toggle, slider or button, `text` for a choice.
+message ActOnIntegrationRequest {
+  string id = 1;
+  string section = 2;
+  string control = 3;
+  float value = 4;
+  string text = 5;
 }
 
 message GetBrowserProfilesRequest {}

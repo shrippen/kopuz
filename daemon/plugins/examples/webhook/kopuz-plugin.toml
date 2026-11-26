@@ -10,6 +10,7 @@ network = ["$server"]
 [integration]
 server = "url"
 listens = ["playback", "audio"]
+panel = true
 
 [[integration.field]]
 key = "url"

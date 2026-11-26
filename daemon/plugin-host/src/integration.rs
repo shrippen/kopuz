@@ -22,6 +22,15 @@ const CALL_LIMIT: Duration = if cfg!(test) {
     Duration::from_secs(30)
 };
 
+/// A control's last value, put back through `act` each time an instance opens.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Setpoint {
+    pub section: String,
+    pub control: String,
+    pub value: f32,
+    pub text: String,
+}
+
 struct Live {
     plugin: Arc<Plugin>,
     instance: Instance<IntegrationPlugin>,
@@ -31,6 +40,7 @@ struct Live {
 pub struct Integration {
     plugin: RwLock<Arc<Plugin>>,
     settings: Vec<(String, String)>,
+    restore: RwLock<Vec<Setpoint>>,
     live: Mutex<Option<Live>>,
     closed: AtomicBool,
 }
@@ -49,6 +59,7 @@ impl Integration {
         Self {
             plugin: RwLock::new(plugin),
             settings,
+            restore: RwLock::new(Vec::new()),
             live: Mutex::new(None),
             closed: AtomicBool::new(false),
         }
@@ -65,6 +76,14 @@ impl Integration {
 
     pub fn settings(&self) -> &[(String, String)] {
         &self.settings
+    }
+
+    /// What to put back after the next instance opens, replacing the last.
+    pub fn restore(&self, setpoints: Vec<Setpoint>) {
+        *self
+            .restore
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = setpoints;
     }
 
     /// Run every later call on `plugin`; the instance of the old code is
@@ -115,11 +134,52 @@ impl Integration {
             )
             .await?;
         let handle = constructed.map_err(|error| plugin.trapped(error))?;
-        Ok(Live {
+        let mut live = Live {
             plugin,
             instance,
             handle,
-        })
+        };
+        self.replay(&mut live).await?;
+        Ok(live)
+    }
+
+    /// Put each remembered control back. A plugin that refuses one, such as a
+    /// device that is gone, is logged and the value kept for the next open.
+    async fn replay(&self, live: &mut Live) -> Result<(), PluginError> {
+        let setpoints = self
+            .restore
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone();
+        for setpoint in setpoints {
+            let guest = live.instance.bindings.kopuz_plugin_integration().instance();
+            let call = guest.call_act(
+                &mut live.instance.store,
+                live.handle,
+                &setpoint.section,
+                &setpoint.control,
+                setpoint.value,
+                &setpoint.text,
+            );
+            let answer = match tokio::time::timeout(CALL_LIMIT, call).await {
+                Ok(Ok(answer)) => answer,
+                Ok(Err(error)) => return Err(live.plugin.trapped(error)),
+                Err(_) => {
+                    tracing::error!(plugin = %live.plugin.id(), "restoring a control timed out");
+                    return Err(PluginError::TimedOut);
+                }
+            };
+            if let Err(error) = answer {
+                tracing::warn!(
+                    plugin = %live.plugin.id(),
+                    section = %setpoint.section,
+                    control = %setpoint.control,
+                    ?error,
+                    "a control was not restored"
+                );
+            }
+        }
+        Ok(())
     }
 }
 
@@ -176,4 +236,15 @@ calls! {
     fn on_playback => call_on_playback(event: &wit::PlaybackEvent => event) -> ();
 
     fn on_audio => call_on_audio(frames: &[wit::AudioFrame] => frames) -> ();
+
+    /// What to show now.
+    fn panel => call_panel() -> Vec<wit::Section>;
+
+    /// The person changed a control.
+    fn act => call_act(
+        section: &str => section,
+        control: &str => control,
+        value: f32 => value,
+        text: &str => text
+    ) -> Fallible<()>;
 }

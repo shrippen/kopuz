@@ -4,7 +4,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use api::{ErrorCode, FieldKind, FieldValue, IntegrationInfo, Text};
+use api::{ErrorCode, FieldKind, FieldValue, IntegrationInfo, IntegrationPanel, Text};
 use daemon::{ConfigService, CredentialStore, IntegrationService, PresencePause};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -203,6 +203,62 @@ async fn an_integration_plugin_is_set_up_from_its_own_fields() {
             .any(|(key, value)| key == "url" && *value == moved.url)
     );
 
+    // Its panel is asked of the running plugin, and acting reaches it.
+    let panels = service.panels().await;
+    assert_eq!(panels.len(), 1);
+    assert_eq!(panels[0].id, ID);
+    assert_eq!(panels[0].name, Text::Literal("Webhook".into()));
+    let paused = |panels: &[IntegrationPanel]| {
+        panels[0].sections[0]
+            .controls
+            .iter()
+            .find(|control| control.key == "paused")
+            .map(|control| control.value)
+    };
+    assert_eq!(paused(&panels), Some(0.0));
+    let wrong = service
+        .act("plugin:nothing", "", "paused", 1.0, "")
+        .await
+        .expect_err("no such plugin");
+    assert_eq!(wrong.code, ErrorCode::NotFound);
+    moved.refuse_next();
+    let refused = service
+        .act(ID, "", "test", 0.0, "")
+        .await
+        .expect_err("the plugin's error comes back like a check's");
+    assert_eq!(refused.code, ErrorCode::InvalidInput);
+    assert!(refused.message.contains("500"), "{refused:?}");
+    service
+        .act(ID, "", "test", 0.0, "")
+        .await
+        .expect("a button");
+    service
+        .act(ID, "", "paused", 1.0, "")
+        .await
+        .expect("a toggle");
+    assert_eq!(paused(&service.panels().await), Some(1.0));
+    let rows = database.integration_credentials().await.expect("rows");
+    assert!(
+        rows.keys()
+            .any(|key| key.starts_with("plugin/webhook/$panel/")),
+        "a toggle's value is kept with the answers: {rows:?}"
+    );
+    assert!(
+        rows.keys().all(|key| !key.ends_with("/test")),
+        "a button is not kept"
+    );
+
+    // Reopened, whether closed or replaced by changed answers, it is put back.
+    running[0].close().await;
+    assert_eq!(paused(&service.panels().await), Some(1.0));
+    service
+        .set_settings(ID, vec![answer("beats", "true")])
+        .await
+        .expect("changed answers");
+    let reopened = service.plugins().running();
+    assert!(!Arc::ptr_eq(&running[0], &reopened[0]));
+    assert_eq!(paused(&service.panels().await), Some(1.0));
+
     service.clear(ID).await.expect("cleared");
     assert!(!webhook(&service.list().await).configured);
     assert!(service.plugins().running().is_empty());
@@ -214,5 +270,9 @@ async fn an_integration_plugin_is_set_up_from_its_own_fields() {
             .keys()
             .all(|key| !key.starts_with("plugin/webhook/")),
         "clearing drops every answer"
+    );
+    assert!(
+        service.panels().await.is_empty(),
+        "nothing runs to show one"
     );
 }

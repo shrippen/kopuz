@@ -997,6 +997,23 @@ impl IntegrationService {
         &self.plugins
     }
 
+    /// What each running integration plugin with a panel shows now.
+    pub async fn panels(&self) -> Vec<api::IntegrationPanel> {
+        self.plugins.panels().await
+    }
+
+    /// A panel control of an integration plugin was changed.
+    pub async fn act(
+        &self,
+        id: &str,
+        section: &str,
+        control: &str,
+        value: f32,
+        text: &str,
+    ) -> Result<(), ApiError> {
+        self.plugins.act(id, section, control, value, text).await
+    }
+
     pub async fn list(&self) -> Vec<IntegrationInfo> {
         all(
             &self.config.snapshot().await,
