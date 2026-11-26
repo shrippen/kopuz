@@ -19,6 +19,7 @@ use crate::style;
 use store::{Link, Notices, Query};
 
 const METER_WIDTH: f32 = 160.;
+const PERCENT_WIDTH: f32 = 40.;
 const SLIDER_STEPS: f32 = 100.;
 
 /// Which controls a panel draws.
@@ -89,11 +90,22 @@ fn step_of(min: f32, max: f32, step: f32) -> f32 {
     }
 }
 
+/// Digits after the point as the number is written: 0.05 has two.
+fn decimals(value: f64) -> i32 {
+    let text = (value as f32).to_string();
+    text.split_once('.')
+        .map_or(0, |(_, tail)| tail.len() as i32)
+}
+
 /// A dragged value on the nearest step from `min`, inside the range.
 pub fn snap(value: f32, min: f32, max: f32, step: f32) -> f32 {
     let step = step_of(min, max, step);
-    let snapped = min + ((value - min) / step).round() * step;
-    snapped.clamp(min, max.max(min))
+    let (value, min, step) = (f64::from(value), f64::from(min), f64::from(step));
+    let steps = ((value - min) / step).round();
+    // Round to the step's decimals, so 0.5 + 9 * 0.1 is 1.4, not 1.4000000000000001.
+    let scale = 10_f64.powi(decimals(step).max(decimals(min)));
+    let snapped = ((min + steps * step) * scale).round() / scale;
+    (snapped as f32).clamp(min as f32, max.max(min as f32))
 }
 
 /// A slider's value as it reads beside it: whole when the step is.
@@ -103,6 +115,11 @@ fn readout(value: f32, step: f32) -> SharedString {
         false => format!("{value:.2}"),
     }
     .into()
+}
+
+/// A meter's fill as a rounded percent, clamped to the bar.
+fn percent(value: f32) -> SharedString {
+    format!("{:.0} %", value.clamp(0., 1.) * 100.).into()
 }
 
 /// What a panel keeps of the sliders, so a poll does not move one under the finger.
@@ -220,9 +237,24 @@ impl IntegrationPanelView {
                 .text_color(style::white(style::TEXT_MUTED, cx))
                 .child(SharedString::from(control.text.clone()))
                 .into_any_element(),
-            PanelControlKind::Meter => div()
-                .w(px(METER_WIDTH))
-                .child(ProgressBar::new(id, Some(control.value.clamp(0., 1.))))
+            PanelControlKind::Meter => h_flex()
+                .gap_2()
+                .items_center()
+                .child(
+                    div()
+                        .w(px(METER_WIDTH))
+                        .child(ProgressBar::new(id, Some(control.value.clamp(0., 1.)))),
+                )
+                // Fixed width, so the bar does not shift as the digits change.
+                .child(
+                    div()
+                        .w(px(PERCENT_WIDTH))
+                        .flex_none()
+                        .text_right()
+                        .text_sm()
+                        .text_color(style::white(style::TEXT_MUTED, cx))
+                        .child(percent(control.value)),
+                )
                 .into_any_element(),
             PanelControlKind::Button => Button::new(id)
                 .custom(style::soft_button(cx.theme().foreground, cx))
@@ -346,6 +378,26 @@ mod tests {
         assert_eq!(snap(7.4, 5., 20., 5.), 5.);
         assert_eq!(snap(99., 0., 10., 1.), 10.);
         assert_eq!(snap(-3., 0., 10., 1.), 0.);
+    }
+
+    #[test]
+    fn snap_is_free_of_float_noise() {
+        assert_eq!(snap(59.99, 0., 100., 5.), 60.);
+        assert_eq!(snap(60.000004, 0., 100., 5.), 60.);
+        assert_eq!(snap(0.3, 0., 1., 0.1), 0.3_f32);
+        assert_eq!(snap(0.7, 0., 1., 0.1), 0.7_f32);
+        assert_eq!(snap(0.25, 0., 1., 0.05), 0.25_f32);
+        assert_eq!(snap(1.4, 0.5, 2., 0.1), 1.4_f32);
+        assert_eq!(snap(0.31, -1., 1., 0.1), 0.3_f32);
+        assert_eq!(snap(-0.29, -1., 1., 0.1), -0.3_f32);
+        assert_eq!(snap(12.5, 10., 100., 2.5), 12.5_f32);
+    }
+
+    #[test]
+    fn meter_reads_as_percent() {
+        assert_eq!(percent(0.644), SharedString::from("64 %"));
+        assert_eq!(percent(1.5), SharedString::from("100 %"));
+        assert_eq!(percent(-1.), SharedString::from("0 %"));
     }
 
     #[test]
