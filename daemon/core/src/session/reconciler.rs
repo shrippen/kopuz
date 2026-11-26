@@ -264,11 +264,7 @@ impl Session {
         };
         let duration = Duration::from_secs(track.duration);
         let remaining = duration.saturating_sub(position);
-        if duration.is_zero() || position >= duration || remaining > window {
-            return false;
-        }
-
-        true
+        !duration.is_zero() && position < duration && remaining <= window
     }
 
     /// The plan for mixing into the next track, while it can still be armed.
