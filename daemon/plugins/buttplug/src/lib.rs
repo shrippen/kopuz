@@ -2,6 +2,8 @@
 
 mod engine;
 mod follow;
+mod panel;
+mod prefs;
 mod protocol;
 mod session;
 mod ws;
@@ -11,11 +13,11 @@ use std::io;
 use std::time::Duration;
 
 use kopuz_plugin_sdk::SourceError;
-use kopuz_plugin_sdk::integration::{AudioFrame, Integration, PlaybackEvent, Settings};
+use kopuz_plugin_sdk::integration::{AudioFrame, Integration, PlaybackEvent, Section, Settings};
 use kopuz_plugin_sdk::tcp;
 
 use engine::{Connect, Engine};
-use follow::{Follow, Sample};
+use follow::Sample;
 use ws::{Endpoint, Link};
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(1);
@@ -49,11 +51,9 @@ pub struct Buttplug {
 impl Integration for Buttplug {
     fn open(settings: Settings) -> Self {
         let url = settings.get("url").unwrap_or_default().to_string();
-        let follow = Follow::from_setting(settings.get("follow"));
-        let cap = follow::strength_from_setting(settings.get("strength"));
         let engine = Endpoint::parse(&url)
             .ok()
-            .map(|endpoint| Engine::new(TcpConnect, endpoint, follow, cap));
+            .map(|endpoint| Engine::new(TcpConnect, endpoint));
         Buttplug {
             url,
             engine: RefCell::new(engine),
@@ -102,6 +102,20 @@ impl Integration for Buttplug {
             .collect();
         if let Some(engine) = self.engine.borrow_mut().as_mut() {
             engine.audio(&samples);
+        }
+    }
+
+    fn panel(&self) -> Vec<Section> {
+        match self.engine.borrow_mut().as_mut() {
+            Some(engine) => engine.panel(),
+            None => Vec::new(),
+        }
+    }
+
+    fn act(&self, section: &str, control: &str, value: f32, text: &str) -> Result<(), SourceError> {
+        match self.engine.borrow_mut().as_mut() {
+            Some(engine) => engine.act(section, control, value, text),
+            None => Ok(()),
         }
     }
 }

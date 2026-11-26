@@ -9,6 +9,7 @@ network = ["$server"]
 
 [integration]
 server = "url"
+panel = true
 listens = ["playback", "audio"]
 
 [[integration.field]]
@@ -18,26 +19,3 @@ kind = "url"
 placeholder = "ws://127.0.0.1:12345"
 help = "The server address shown in Intiface Central. Start its server first."
 required = true
-
-[[integration.field]]
-key = "follow"
-label = "Follow"
-kind = "choice"
-options = [
-  { value = "level", label = "The loudness" },
-  { value = "low", label = "The bass" },
-  { value = "beat", label = "The beat" },
-]
-help = "What in the music drives the devices. The loudness when unset."
-
-[[integration.field]]
-key = "strength"
-label = "Strength"
-kind = "choice"
-options = [
-  { value = "25", label = "Gentle (25%)" },
-  { value = "50", label = "Medium (50%)" },
-  { value = "75", label = "Strong (75%)" },
-  { value = "100", label = "Full (100%)" },
-]
-help = "The most the devices are driven at. Medium when unset."

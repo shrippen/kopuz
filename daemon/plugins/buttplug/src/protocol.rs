@@ -40,6 +40,10 @@ pub fn stop_all(id: u32) -> String {
     packet(json!({ "StopAllDevices": { "Id": id } }))
 }
 
+pub fn stop_device(id: u32, device: u32) -> String {
+    packet(json!({ "StopDeviceCmd": { "Id": id, "DeviceIndex": device } }))
+}
+
 /// One actuator's new value, 0 to 1.
 pub struct Scalar {
     pub index: u32,
@@ -191,6 +195,13 @@ mod tests {
         assert_eq!(body["Scalars"][0]["Index"], 1);
         assert_eq!(body["Scalars"][0]["Scalar"], 0.3);
         assert_eq!(body["Scalars"][0]["ActuatorType"], "Vibrate");
+    }
+
+    #[test]
+    fn a_stop_command_names_one_device() {
+        let sent: Value = serde_json::from_str(&stop_device(5, 3)).unwrap();
+        assert_eq!(sent[0]["StopDeviceCmd"]["DeviceIndex"], 3);
+        assert_eq!(sent[0]["StopDeviceCmd"]["Id"], 5);
     }
 
     #[test]

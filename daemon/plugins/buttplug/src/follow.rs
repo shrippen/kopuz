@@ -16,13 +16,27 @@ pub enum Follow {
 }
 
 impl Follow {
-    /// The `follow` field's answer; the loudness when unset or unknown.
-    pub fn from_setting(value: Option<&str>) -> Self {
-        match value {
-            Some("low") => Follow::Low,
-            Some("beat") => Follow::Beat,
-            _ => Follow::Level,
+    pub const ALL: [Follow; 3] = [Follow::Level, Follow::Low, Follow::Beat];
+
+    /// What a choice control carries for it.
+    pub fn key(self) -> &'static str {
+        match self {
+            Follow::Level => "level",
+            Follow::Low => "low",
+            Follow::Beat => "beat",
         }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Follow::Level => "The loudness",
+            Follow::Low => "The bass",
+            Follow::Beat => "The beat",
+        }
+    }
+
+    pub fn from_key(key: &str) -> Option<Self> {
+        Follow::ALL.into_iter().find(|follow| follow.key() == key)
     }
 }
 
@@ -34,15 +48,6 @@ const ATTACK: f32 = 0.6;
 const RELEASE: f32 = 0.08;
 /// A beat's pulse falls to nothing over about 250 ms.
 const BEAT_DECAY: f32 = 0.08;
-pub const DEFAULT_STRENGTH: f32 = 0.5;
-
-/// The strength field's answer as a fraction; medium when unset or unknown.
-pub fn strength_from_setting(value: Option<&str>) -> f32 {
-    match value.and_then(|value| value.parse::<u32>().ok()) {
-        Some(percent @ (25 | 50 | 75 | 100)) => percent as f32 / 100.0,
-        _ => DEFAULT_STRENGTH,
-    }
-}
 
 pub struct Follower {
     follow: Follow,
@@ -88,6 +93,57 @@ impl Follower {
             false => samples.iter().for_each(|sample| self.step(sample)),
         }
         (self.value * self.cap).clamp(0.0, 1.0)
+    }
+}
+
+/// One follower per mode, so each device can follow its own.
+pub struct Followers {
+    level: Follower,
+    low: Follower,
+    beat: Follower,
+}
+
+/// What each mode drives at, from 0 to 1.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Levels {
+    level: f32,
+    low: f32,
+    beat: f32,
+}
+
+impl Levels {
+    pub fn get(&self, follow: Follow) -> f32 {
+        match follow {
+            Follow::Level => self.level,
+            Follow::Low => self.low,
+            Follow::Beat => self.beat,
+        }
+    }
+}
+
+impl Default for Followers {
+    fn default() -> Self {
+        Followers {
+            level: Follower::new(Follow::Level, 1.0),
+            low: Follower::new(Follow::Low, 1.0),
+            beat: Follower::new(Follow::Beat, 1.0),
+        }
+    }
+}
+
+impl Followers {
+    pub fn feed(&mut self, samples: &[Sample]) -> Levels {
+        Levels {
+            level: self.level.feed(samples),
+            low: self.low.feed(samples),
+            beat: self.beat.feed(samples),
+        }
+    }
+
+    pub fn reset(&mut self) {
+        self.level.reset();
+        self.low.reset();
+        self.beat.reset();
     }
 }
 
@@ -156,11 +212,31 @@ mod tests {
             ..Sample::default()
         };
         assert_eq!(follower.feed(&[beat]), 0.25);
-        assert_eq!(strength_from_setting(Some("75")), 0.75);
-        assert_eq!(strength_from_setting(Some("900")), DEFAULT_STRENGTH);
-        assert_eq!(strength_from_setting(None), DEFAULT_STRENGTH);
-        assert_eq!(Follow::from_setting(Some("beat")), Follow::Beat);
-        assert_eq!(Follow::from_setting(None), Follow::Level);
+    }
+
+    #[test]
+    fn a_follow_mode_round_trips_through_its_key() {
+        for follow in Follow::ALL {
+            assert_eq!(Follow::from_key(follow.key()), Some(follow));
+        }
+        assert_eq!(Follow::from_key(""), None);
+        assert_eq!(Follow::from_key("bogus"), None);
+    }
+
+    #[test]
+    fn every_mode_follows_at_once() {
+        let mut followers = Followers::default();
+        let beat = Sample {
+            level: 0.0,
+            low: 0.3,
+            beat: true,
+        };
+        let levels = followers.feed(&[beat]);
+        assert_eq!(levels.get(Follow::Beat), 1.0);
+        assert_eq!(levels.get(Follow::Level), 0.0);
+        assert!(levels.get(Follow::Low) > 0.4);
+        followers.reset();
+        assert_eq!(followers.feed(&[]).get(Follow::Beat), 0.0);
     }
 
     #[test]

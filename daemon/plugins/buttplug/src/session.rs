@@ -19,12 +19,13 @@ const MAX_DRAIN: u32 = 32;
 const CALL_MS: u32 = 50;
 const PINGS_PER_WINDOW: u32 = 3;
 
+/// The key of a device that names itself nothing.
+const DEFAULT_NAME: &str = "Device";
+
 /// What a panel can show: whether Intiface is connected, its devices and
 /// what was last sent to them.
 #[derive(Debug, Default, Clone)]
 pub struct DeviceState {
-    // Read by the panel, which is yet to come.
-    #[allow(dead_code)]
     pub connected: bool,
     pub devices: BTreeMap<u32, Device>,
     /// The step last sent per (device, actuator); absent means 0.
@@ -36,6 +37,43 @@ pub struct DeviceState {
 impl DeviceState {
     fn sent_step(&self, device: u32, actuator: u32) -> u32 {
         self.sent.get(&(device, actuator)).copied().unwrap_or(0)
+    }
+
+    /// Each device's section key in the panel: its name, or `name#index` when
+    /// two devices share a name.
+    pub fn keys(&self) -> BTreeMap<u32, String> {
+        let name_of = |device: &Device| match device.name.is_empty() {
+            true => DEFAULT_NAME.to_string(),
+            false => device.name.clone(),
+        };
+        self.devices
+            .values()
+            .map(|device| {
+                let name = name_of(device);
+                let twins = self.devices.values().filter(|d| name_of(d) == name).count();
+                match twins > 1 {
+                    true => (device.index, format!("{name}#{}", device.index)),
+                    false => (device.index, name),
+                }
+            })
+            .collect()
+    }
+
+    pub fn index_of(&self, key: &str) -> Option<u32> {
+        self.keys()
+            .into_iter()
+            .find_map(|(index, name)| (name == key).then_some(index))
+    }
+
+    /// The last value sent to a device, from 0 to 1: its strongest actuator.
+    pub fn now(&self, device: &Device) -> f32 {
+        device
+            .actuators
+            .iter()
+            .map(|actuator| {
+                self.sent_step(device.index, actuator.index) as f32 / actuator.steps as f32
+            })
+            .fold(0.0, f32::max)
     }
 
     /// Whether the device's timing gap has passed since its last command.
@@ -140,18 +178,28 @@ impl<L: Link> Session<L> {
         self.send(&ping)
     }
 
+    /// Reads what the server sent, for a panel that only looks.
+    pub fn poll(&mut self) -> Result<(), String> {
+        self.drain()
+    }
+
     /// Reads the server, keeps it pinged and sends each device whose step
-    /// changed, within its timing gap, at `value` (0 to 1): one command per device.
-    pub fn drive(&mut self, value: f32) -> Result<(), String> {
+    /// changed, within its timing gap, at the value `value_for` gives for its
+    /// key (0 to 1; `None` leaves it alone): one command per device.
+    pub fn drive(&mut self, mut value_for: impl FnMut(&str) -> Option<f32>) -> Result<(), String> {
         self.drain()?;
         self.ping_if_due()?;
 
         let mut commands = Vec::new();
         let now = Instant::now();
+        let keys = self.state.keys();
         for device in self.state.devices.values() {
             if !device.supported() || !self.state.gap_passed(device, now) {
                 continue;
             }
+            let Some(value) = value_for(&keys[&device.index]) else {
+                continue;
+            };
             let steps: Vec<u32> = device
                 .actuators
                 .iter()
@@ -186,6 +234,46 @@ impl<L: Link> Session<L> {
         Ok(())
     }
 
+    pub fn scan(&mut self) -> Result<(), String> {
+        let scan = protocol::start_scanning(self.take_id());
+        self.send(&scan)
+    }
+
+    pub fn stop_device(&mut self, index: u32) -> Result<(), String> {
+        self.state.sent.retain(|(device, _), _| *device != index);
+        self.state.sent_at.remove(&index);
+        let stop = protocol::stop_device(self.take_id(), index);
+        self.send(&stop)
+    }
+
+    /// Drives one device at `value` for `hold`, then stops it; the stop goes
+    /// out even when the drive failed.
+    pub fn test(&mut self, index: u32, value: f32, hold: Duration) -> Result<(), String> {
+        let driven = self
+            .drive_one(index, value)
+            .map(|()| std::thread::sleep(hold));
+        let stopped = self.stop_device(index);
+        driven.and(stopped)
+    }
+
+    fn drive_one(&mut self, index: u32, value: f32) -> Result<(), String> {
+        let Some(device) = self.state.devices.get(&index).filter(|d| d.supported()) else {
+            return Err("that device cannot be driven".to_string());
+        };
+        let mut scalars = Vec::new();
+        for actuator in &device.actuators {
+            let step = quantize(value, actuator.steps);
+            self.state.sent.insert((index, actuator.index), step);
+            scalars.push(Scalar {
+                index: actuator.index,
+                kind: actuator.kind.clone(),
+                value: step as f64 / actuator.steps as f64,
+            });
+        }
+        let command = protocol::scalar_cmd(self.take_id(), index, &scalars);
+        self.send(&command)
+    }
+
     pub fn stop_all(&mut self) -> Result<(), String> {
         self.state.sent.clear();
         self.state.sent_at.clear();
@@ -208,4 +296,30 @@ fn wait_for_info<L: Link>(socket: &mut WebSocket<L>) -> Result<u32, String> {
         }
     }
     Err("the server did not answer the handshake".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn device(index: u32, name: &str) -> Device {
+        Device {
+            index,
+            name: name.into(),
+            actuators: Vec::new(),
+            timing_gap_ms: 100,
+        }
+    }
+
+    #[test]
+    fn devices_sharing_a_name_are_told_apart_by_index() {
+        let mut state = DeviceState::default();
+        for (index, name) in [(0, "Toy"), (1, "Toy"), (2, "Other"), (3, "")] {
+            state.devices.insert(index, device(index, name));
+        }
+        let keys: Vec<String> = state.keys().into_values().collect();
+        assert_eq!(keys, ["Toy#0", "Toy#1", "Other", "Device"]);
+        assert_eq!(state.index_of("Toy#1"), Some(1));
+        assert_eq!(state.index_of("Toy"), None);
+    }
 }
