@@ -109,9 +109,15 @@ pub struct Levels {
     level: f32,
     low: f32,
     beat: f32,
+    /// Whether a beat came in the frames just fed.
+    hit: bool,
 }
 
 impl Levels {
+    pub fn hit(&self) -> bool {
+        self.hit
+    }
+
     pub fn get(&self, follow: Follow) -> f32 {
         match follow {
             Follow::Level => self.level,
@@ -137,6 +143,7 @@ impl Followers {
             level: self.level.feed(samples),
             low: self.low.feed(samples),
             beat: self.beat.feed(samples),
+            hit: samples.iter().any(|sample| sample.beat),
         }
     }
 
@@ -233,6 +240,8 @@ mod tests {
         };
         let levels = followers.feed(&[beat]);
         assert_eq!(levels.get(Follow::Beat), 1.0);
+        assert!(levels.hit());
+        assert!(!followers.feed(&[]).hit());
         assert_eq!(levels.get(Follow::Level), 0.0);
         assert!(levels.get(Follow::Low) > 0.4);
         followers.reset();

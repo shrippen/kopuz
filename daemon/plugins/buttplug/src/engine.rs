@@ -7,10 +7,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use kopuz_plugin_sdk::SourceError;
 use kopuz_plugin_sdk::integration::Section;
 
-use crate::follow::{Followers, Levels, Sample};
+use crate::follow::{Follow, Followers, Levels, Sample};
 use crate::panel::{self, Link as LinkStatus};
 use crate::prefs::{Action, Prefs};
-use crate::session::Session;
+use crate::session::{Beat, Drive, Session};
 use crate::ws::{Endpoint, Link};
 
 /// Calls (about 50 ms each) to wait after a failure, doubling up to the max.
@@ -119,7 +119,7 @@ impl<C: Connect> Engine<C> {
         let Some(session) = self.session.as_mut() else {
             return;
         };
-        if let Err(why) = session.drive(|key| drive_value(prefs, &levels, key)) {
+        if let Err(why) = session.drive(|key| drive_for(prefs, &levels, key)) {
             self.fail(&why);
         }
     }
@@ -229,13 +229,24 @@ impl<C: Connect> Engine<C> {
     }
 }
 
-/// What a device is driven at now; `None` when it must not be.
-fn drive_value(prefs: &Prefs, levels: &Levels, key: &str) -> Option<f32> {
+/// How a device is driven now; `None` when it must not be.
+fn drive_for(prefs: &Prefs, levels: &Levels, key: &str) -> Option<Drive> {
     let device = prefs.device(key);
     if !prefs.active || !device.on {
         return None;
     }
-    Some(levels.get(prefs.follows(key)) * prefs.master * device.cap)
+    let follow = prefs.follows(key);
+    let strength = prefs.master * device.cap;
+    let beat = match (follow, levels.hit()) {
+        (Follow::Beat, true) => Beat::Hit,
+        (Follow::Beat, false) => Beat::Wait,
+        _ => Beat::Off,
+    };
+    Some(Drive {
+        value: levels.get(follow) * strength,
+        strength,
+        beat,
+    })
 }
 
 impl<C: Connect> Drop for Engine<C> {
@@ -271,6 +282,10 @@ mod tests {
 
     const STROKER: &str = r#"{"DeviceIndex":1,"DeviceMessageTimingGap":100,"DeviceMessages":{"LinearCmd":[{"ActuatorType":"Position","FeatureDescriptor":"Linear Axis","StepCount":1000}],"ScalarCmd":[{"ActuatorType":"Position","FeatureDescriptor":"Linear Axis","StepCount":1000}],"StopDeviceCmd":{}},"DeviceName":"Simulated Stroker"}"#;
     const VIBRATOR: &str = "Simulated 2-Motor Vibrator";
+    const STROKER_NAME: &str = "Simulated Stroker";
+
+    /// A device with a vibrator and a position axis.
+    const HYBRID: &str = r#"{"DeviceIndex":2,"DeviceMessageTimingGap":100,"DeviceMessages":{"LinearCmd":[{"ActuatorType":"Position","FeatureDescriptor":"Axis","StepCount":1000}],"ScalarCmd":[{"ActuatorType":"Vibrate","FeatureDescriptor":"Motor","StepCount":100}],"StopDeviceCmd":{}},"DeviceName":"Hybrid"}"#;
 
     fn reply(stream: &mut TcpStream, body: Value) {
         let text = Value::Array(vec![body]).to_string();
@@ -539,6 +554,7 @@ mod tests {
         let sections = panel_with(&mut engine, 2);
         let plugin = &sections[0];
         assert_eq!(plugin.key, "");
+        assert_eq!(plugin.title, "");
         assert_eq!(control(plugin, prefs::STATUS).text, "Connected");
         assert_eq!(control(plugin, prefs::ACTIVE).value, 1.0);
         assert_eq!(control(plugin, prefs::STRENGTH).value, 50.0);
@@ -569,9 +585,18 @@ mod tests {
         assert_eq!(control(vibrator, prefs::FOLLOWS).text, "");
 
         let stroker = &sections[2];
-        assert_eq!(stroker.key, "Simulated Stroker");
-        assert_eq!(stroker.controls.len(), 1);
-        assert_eq!(stroker.controls[0].text, "Not supported yet");
+        assert_eq!(stroker.key, STROKER_NAME);
+        let keys: Vec<&str> = stroker.controls.iter().map(|c| c.key.as_str()).collect();
+        assert_eq!(
+            keys,
+            [
+                prefs::NOW,
+                prefs::ON,
+                prefs::STRENGTH,
+                prefs::FOLLOWS,
+                prefs::TEST
+            ]
+        );
 
         let sent = heard(&rx);
         assert_eq!(
@@ -768,6 +793,172 @@ mod tests {
                 ),
                 "{section}/{control}"
             );
+        }
+    }
+
+    fn beat() -> [Sample; 1] {
+        [Sample {
+            level: 0.0,
+            low: 0.0,
+            beat: true,
+        }]
+    }
+
+    /// The server's next message of this kind, skipping the others.
+    fn next_of(rx: &Receiver<(String, Value)>, wanted: &str) -> Value {
+        loop {
+            let (kind, body) = next(rx);
+            if kind == wanted {
+                return body;
+            }
+        }
+    }
+
+    /// A connected engine with the stroker listed and the handshake heard.
+    fn stroker_engine(
+        follow: &str,
+        percent: f32,
+    ) -> (Engine<StdConnect>, Receiver<(String, Value)>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let rx = serve_with(listener, &[STROKER]);
+        let mut engine = engine_for(port, follow, percent);
+        panel_with(&mut engine, 1);
+        heard(&rx);
+        (engine, rx)
+    }
+
+    fn position(body: &Value) -> f64 {
+        body["Vectors"][0]["Position"].as_f64().unwrap()
+    }
+
+    fn duration(body: &Value) -> u64 {
+        body["Vectors"][0]["Duration"].as_u64().unwrap()
+    }
+
+    #[test]
+    fn a_stroker_swings_between_the_ends_on_each_beat() {
+        let (mut engine, rx) = stroker_engine("beat", 50.0);
+
+        // No beat, no stroke.
+        engine.audio(&loud());
+        assert!(heard(&rx).is_empty());
+
+        // The first beat has no interval to go by: the default, to the high end.
+        engine.audio(&beat());
+        let first = next_of(&rx, "LinearCmd");
+        assert_eq!(first["DeviceIndex"], 1);
+        assert_eq!(position(&first), 0.75);
+        assert_eq!(duration(&first), 500);
+
+        // The next goes to the low end over the time since the last beat.
+        std::thread::sleep(Duration::from_millis(300));
+        engine.audio(&beat());
+        let second = next_of(&rx, "LinearCmd");
+        assert_eq!(position(&second), 0.25);
+        assert!((300..=400).contains(&duration(&second)), "{second}");
+
+        // A slow beat is clamped to a second.
+        std::thread::sleep(Duration::from_millis(1100));
+        engine.audio(&beat());
+        let third = next_of(&rx, "LinearCmd");
+        assert_eq!(position(&third), 0.75);
+        assert_eq!(duration(&third), 1000);
+
+        // The panel shows the stroke length.
+        let sections = engine.panel();
+        assert_eq!(control(&sections[1], prefs::NOW).value, 50.0 / 100.0);
+    }
+
+    #[test]
+    fn a_stroker_follows_the_level_over_its_timing_gap() {
+        let (mut engine, rx) = stroker_engine("level", 100.0);
+        let mut body = None;
+        for _ in 0..200 {
+            engine.audio(&loud());
+            if let Ok((kind, found)) = rx.recv_timeout(Duration::from_millis(20)) {
+                assert_eq!(kind, "LinearCmd");
+                body = Some(found);
+                break;
+            }
+        }
+        let body = body.expect("a LinearCmd");
+        assert!(position(&body) > 0.0 && position(&body) <= 1.0, "{body}");
+        assert_eq!(duration(&body), 100);
+
+        // The envelope still rises, but the device was just sent one.
+        for _ in 0..3 {
+            engine.audio(&loud());
+        }
+        assert!(rx.recv_timeout(Duration::from_millis(20)).is_err());
+    }
+
+    #[test]
+    fn a_stroker_is_skipped_when_off_and_stopped_by_the_buttons() {
+        let (mut engine, rx) = stroker_engine("beat", 100.0);
+
+        engine.act(STROKER_NAME, prefs::ON, 0.0, "").unwrap();
+        let sent = heard(&rx);
+        assert_eq!(kinds(&sent), ["StopDeviceCmd"]);
+        assert_eq!(sent[0].1["DeviceIndex"], 1);
+        engine.audio(&beat());
+        assert!(heard(&rx).is_empty());
+
+        engine.act(STROKER_NAME, prefs::ON, 1.0, "").unwrap();
+        engine.audio(&beat());
+        assert_eq!(kinds(&heard(&rx)), ["LinearCmd"]);
+
+        engine.stop();
+        assert_eq!(kinds(&heard(&rx)), ["StopAllDevices"]);
+    }
+
+    #[test]
+    fn the_test_button_strokes_a_stroker_out_and_back_then_stops_it() {
+        let (mut engine, rx) = stroker_engine("level", 50.0);
+
+        engine.act(STROKER_NAME, prefs::TEST, 0.0, "").unwrap();
+        let sent = heard(&rx);
+        assert_eq!(kinds(&sent), ["LinearCmd", "LinearCmd", "StopDeviceCmd"]);
+        assert_eq!(position(&sent[0].1), 0.75);
+        assert_eq!(position(&sent[1].1), 0.25);
+        assert_eq!(duration(&sent[0].1), 250);
+        assert_eq!(sent[2].1["DeviceIndex"], 1);
+    }
+
+    #[test]
+    fn a_device_with_a_vibrator_and_an_axis_gets_both_commands() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let rx = serve_with(listener, &[HYBRID]);
+        let mut engine = engine_for(port, "level", 100.0);
+        panel_with(&mut engine, 1);
+        heard(&rx);
+
+        let mut sent = Vec::new();
+        for _ in 0..200 {
+            engine.audio(&loud());
+            sent.extend(heard(&rx));
+            if !sent.is_empty() {
+                break;
+            }
+        }
+        assert_eq!(kinds(&sent), ["ScalarCmd", "LinearCmd"]);
+    }
+
+    #[test]
+    fn a_slider_reports_exactly_the_percent_it_was_set_to() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let _rx = serve(listener);
+        let mut engine = engine_for(port, "level", 50.0);
+        panel_with(&mut engine, 1);
+
+        for percent in [60.0, 35.0, 85.0] {
+            engine.act("", prefs::STRENGTH, percent, "").unwrap();
+            engine.act(VIBRATOR, prefs::STRENGTH, percent, "").unwrap();
+            let sections = engine.panel();
+            assert_eq!(control(&sections[0], prefs::STRENGTH).value, percent);
+            assert_eq!(control(&sections[1], prefs::STRENGTH).value, percent);
         }
     }
 }

@@ -11,6 +11,10 @@ use crate::session::DeviceState;
 /// Sliders move in steps of this many percent.
 const SLIDER_STEP: f32 = 5.0;
 
+/// Percent is reported to this many parts, so f32 noise from the stored
+/// fraction (0.6 * 100 = 60.000004) does not show.
+const PERCENT_PARTS: f32 = 1000.0;
+
 /// How the link to Intiface Central stands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Link {
@@ -67,7 +71,7 @@ fn slider(key: &str, label: &str, fraction: f32, quick: Quick) -> Control {
         step: SLIDER_STEP,
     });
     Control {
-        value: fraction * PERCENT,
+        value: (fraction * PERCENT * PERCENT_PARTS).round() / PERCENT_PARTS,
         ..control(key, label, kind, quick)
     }
 }
@@ -94,7 +98,8 @@ fn choice(key: &str, label: &str, picked: &str, rest: bool, quick: Quick) -> Con
 fn plugin_section(link: Link, prefs: &Prefs) -> Section {
     Section {
         key: String::new(),
-        title: "Buttplug.io".into(),
+        // The app already shows the integration's name above this section.
+        title: String::new(),
         controls: vec![
             Control {
                 label: "Intiface Central".into(),

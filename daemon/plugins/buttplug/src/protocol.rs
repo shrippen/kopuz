@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 pub const MESSAGE_VERSION: u32 = 3;
 const CLIENT_NAME: &str = "kopuz";
 /// The actuator types a plain 0 to 1 scalar drives; a stroker's `Position`
-/// is a place, not a strength, and is left alone.
+/// is a place, not a strength, and goes through `LinearCmd` instead.
 const DRIVEN: [&str; 5] = ["Vibrate", "Oscillate", "Rotate", "Constrict", "Inflate"];
 /// Pause between commands to a device when it names none.
 const DEFAULT_GAP_MS: u32 = 100;
@@ -65,6 +65,27 @@ pub fn scalar_cmd(id: u32, device: u32, scalars: &[Scalar]) -> String {
     packet(json!({ "ScalarCmd": { "Id": id, "DeviceIndex": device, "Scalars": scalars } }))
 }
 
+/// One axis's move: to `position` (0 to 1) over `duration_ms`.
+pub struct Stroke {
+    pub index: u32,
+    pub position: f64,
+    pub duration_ms: u32,
+}
+
+pub fn linear_cmd(id: u32, device: u32, strokes: &[Stroke]) -> String {
+    let vectors: Vec<Value> = strokes
+        .iter()
+        .map(|stroke| {
+            json!({
+                "Index": stroke.index,
+                "Duration": stroke.duration_ms,
+                "Position": (stroke.position * 10_000.0).round() / 10_000.0,
+            })
+        })
+        .collect();
+    packet(json!({ "LinearCmd": { "Id": id, "DeviceIndex": device, "Vectors": vectors } }))
+}
+
 /// An actuator of a device that a scalar drives.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Actuator {
@@ -74,19 +95,28 @@ pub struct Actuator {
     pub steps: u32,
 }
 
+/// A position axis of a device, driven by `LinearCmd`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Axis {
+    /// Its place in the device's `LinearCmd` list, which a command names.
+    pub index: u32,
+    pub steps: u32,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Device {
     pub index: u32,
     pub name: String,
     pub actuators: Vec<Actuator>,
+    pub axes: Vec<Axis>,
     /// The least time between two commands to it.
     pub timing_gap_ms: u32,
 }
 
 impl Device {
-    /// Whether any of its actuators can be driven; a stroker cannot.
+    /// Whether any of its actuators or axes can be driven.
     pub fn supported(&self) -> bool {
-        !self.actuators.is_empty()
+        !self.actuators.is_empty() || !self.axes.is_empty()
     }
 }
 
@@ -119,6 +149,17 @@ fn device(value: &Value) -> Option<Device> {
             steps: actuator["StepCount"].as_u64().unwrap_or(1).max(1) as u32,
         })
         .collect();
+    let axes = value
+        .pointer("/DeviceMessages/LinearCmd")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .enumerate()
+        .map(|(at, axis)| Axis {
+            index: at as u32,
+            steps: axis["StepCount"].as_u64().unwrap_or(1).max(1) as u32,
+        })
+        .collect();
     let name = value["DeviceName"].as_str().unwrap_or_default().to_string();
     let timing_gap_ms = value["DeviceMessageTimingGap"]
         .as_u64()
@@ -127,6 +168,7 @@ fn device(value: &Value) -> Option<Device> {
         index,
         name,
         actuators,
+        axes,
         timing_gap_ms,
     })
 }
@@ -225,6 +267,7 @@ mod tests {
                 kind: "Vibrate".into(),
                 steps: 10,
             }],
+            axes: Vec::new(),
             timing_gap_ms: DEFAULT_GAP_MS,
         };
         let list = format!(r#"[{{"DeviceList":{{"Id":2,"Devices":[{TOY}]}}}}]"#);
@@ -268,11 +311,44 @@ mod tests {
     }
 
     #[test]
-    fn a_stroker_is_unsupported() {
+    fn a_stroker_has_an_axis_and_no_scalar_actuator() {
         let [Incoming::DeviceAdded(device)] = &parse(STROKER)[..] else {
             panic!("one added device");
         };
+        assert!(device.actuators.is_empty());
+        assert_eq!(
+            device.axes,
+            [Axis {
+                index: 0,
+                steps: 1000
+            }]
+        );
+        assert!(device.supported());
+    }
+
+    #[test]
+    fn a_device_with_nothing_to_drive_is_unsupported() {
+        let text = r#"[{"DeviceAdded":{"DeviceIndex":2,"DeviceName":"S","DeviceMessages":{"ScalarCmd":[{"ActuatorType":"Position","StepCount":5}]}}}]"#;
+        let [Incoming::DeviceAdded(device)] = &parse(text)[..] else {
+            panic!("one added device");
+        };
         assert!(!device.supported());
+    }
+
+    #[test]
+    fn a_linear_command_names_axis_duration_and_position() {
+        let strokes = [Stroke {
+            index: 0,
+            position: 0.30000000000000004,
+            duration_ms: 400,
+        }];
+        let sent: Value = serde_json::from_str(&linear_cmd(9, 1, &strokes)).unwrap();
+        let body = &sent[0]["LinearCmd"];
+        assert_eq!(body["Id"], 9);
+        assert_eq!(body["DeviceIndex"], 1);
+        assert_eq!(body["Vectors"][0]["Index"], 0);
+        assert_eq!(body["Vectors"][0]["Duration"], 400);
+        assert_eq!(body["Vectors"][0]["Position"], 0.3);
     }
 
     #[test]
