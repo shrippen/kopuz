@@ -111,7 +111,7 @@ pub use header::{
 };
 pub use heading::{Heading, SectionHeading};
 pub use icon_button::{FollowButton, IconButton, IconTone};
-pub use integration_panel::{IntegrationPanelView, PanelFilter};
+pub use integration_panel::{IntegrationPanelView, PanelFilter, act_on_panel};
 pub use job::{JobLayout, JobLine, JobStop, ProgressBar};
 pub use karaoke::{KaraokeText, Syllable};
 pub use keycap::{KeyHint, Keycap};

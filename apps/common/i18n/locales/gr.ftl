@@ -1329,3 +1329,4 @@ interface_panel_side = Πλευρά
 interface_panel_side_description = Σε ποια πλευρά της σελίδας είναι η στήλη λιστών.
 interface_queue_side = Πλευρά στήλης ουράς και στίχων
 interface_queue_side_description = Σε ποια πλευρά ανοίγει η στήλη ουράς και στίχων.
+integration_controls = Plugin controls

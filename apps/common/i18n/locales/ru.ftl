@@ -1346,3 +1346,4 @@ interface_panel_side = Сторона
 interface_panel_side_description = С какой стороны страницы стоит колонка плейлистов.
 interface_queue_side = Сторона колонки очереди и текста
 interface_queue_side_description = С какой стороны открывается колонка очереди и текста.
+integration_controls = Plugin controls

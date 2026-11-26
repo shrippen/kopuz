@@ -1291,3 +1291,4 @@ interface_panel_side = Sisi
 interface_panel_side_description = Di sisi mana kolom daftar putar berada.
 interface_queue_side = Sisi kolom antrean dan lirik
 interface_queue_side_description = Di sisi mana kolom antrean dan lirik terbuka.
+integration_controls = Plugin controls

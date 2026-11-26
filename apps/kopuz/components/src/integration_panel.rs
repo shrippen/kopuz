@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-use api::{PanelControl, PanelControlKind, PanelSection};
+use api::{IntegrationPanel, PanelControl, PanelControlKind, PanelSection};
 use gpui_kit::base::slider::{SliderEvent, SliderState};
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::{ActiveTheme as _, Sizable as _, h_flex, v_flex};
@@ -16,6 +16,7 @@ use crate::format::text;
 use crate::job::ProgressBar;
 use crate::settings::{Choice, SliderRow, Toggle, set_slider, slider_state};
 use crate::style;
+use store::{Link, Notices, Query};
 
 const METER_WIDTH: f32 = 160.;
 const SLIDER_STEPS: f32 = 100.;
@@ -36,6 +37,29 @@ type SliderKey = (String, String);
 struct SliderSlot {
     state: Entity<SliderState>,
     _subscription: Subscription,
+}
+
+/// Pass a control's change to the plugin, then read the panels again; a refusal shows as a notice.
+pub fn act_on_panel(
+    id: String,
+    (section, control, value, text): (String, String, f32, String),
+    panels: Entity<Query<Vec<IntegrationPanel>>>,
+    cx: &mut App,
+) {
+    let call = Link::global(cx).call(move |api| async move {
+        api.act_on_integration(id, section, control, value, text)
+            .await
+    });
+    cx.spawn(async move |cx| {
+        let result = call.await;
+        cx.update(|cx| {
+            if let Err(error) = result {
+                Notices::failed(&error, cx);
+            }
+            panels.update(cx, |panels, cx| panels.refresh(cx));
+        });
+    })
+    .detach();
 }
 
 /// What the filter keeps; a section left with no control is dropped.

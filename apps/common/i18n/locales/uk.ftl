@@ -1345,3 +1345,4 @@ interface_panel_side = Бік
 interface_panel_side_description = З якого боку сторінки стоїть колонка плейлистів.
 interface_queue_side = Бік колонки черги й тексту
 interface_queue_side_description = З якого боку відкривається колонка черги й тексту.
+integration_controls = Plugin controls

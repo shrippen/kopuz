@@ -1328,3 +1328,4 @@ interface_panel_side = Lado
 interface_panel_side_description = De que lado da página fica a coluna de playlists.
 interface_queue_side = Lado da coluna de fila e letra
 interface_queue_side_description = De que lado da página abre a coluna de fila e letra.
+integration_controls = Plugin controls

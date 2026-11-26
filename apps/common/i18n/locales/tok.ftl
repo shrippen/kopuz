@@ -1297,3 +1297,4 @@ interface_panel_side = poka
 interface_panel_side_description = kulupu kalama li lon poka seme.
 interface_queue_side = poka pi linja kalama
 interface_queue_side_description = linja kalama en nimi li open lon poka seme.
+integration_controls = Plugin controls

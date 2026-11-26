@@ -6,7 +6,9 @@ use api::schema::FieldValue;
 use api::{BrowserProfile, ConnectKind, IntegrationInfo, IntegrationPanel, Table};
 use components::format::{t, t_with, text};
 use components::settings::Choice;
-use components::{FieldChanged, IntegrationPanelView, PanelFilter, SchemaForm, style};
+use components::{
+    FieldChanged, IntegrationPanelView, PanelFilter, SchemaForm, act_on_panel, style,
+};
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::{ActiveTheme as _, Disableable as _, Sizable as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
@@ -50,29 +52,6 @@ fn write_settings(
             }
         })
         .detach();
-}
-
-/// Pass a panel control's change to the plugin, then read the panel again.
-fn act_on_panel(
-    id: String,
-    (section, control, value, text): (String, String, f32, String),
-    panels: Entity<Query<Vec<IntegrationPanel>>>,
-    cx: &mut App,
-) {
-    let call = Link::global(cx).call(move |api| async move {
-        api.act_on_integration(id, section, control, value, text)
-            .await
-    });
-    cx.spawn(async move |cx| {
-        let result = call.await;
-        cx.update(|cx| {
-            if let Err(error) = result {
-                Notices::failed(&error, cx);
-            }
-            panels.update(cx, |panels, cx| panels.refresh(cx));
-        });
-    })
-    .detach();
 }
 
 struct IntegrationForm {

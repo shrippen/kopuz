@@ -1327,3 +1327,4 @@ interface_panel_side = വശം
 interface_panel_side_description = പ്ലേലിസ്റ്റ് കോളം പേജിന്റെ ഏത് വശത്ത്.
 interface_queue_side = ക്യൂ, വരികൾ കോളത്തിന്റെ വശം
 interface_queue_side_description = ക്യൂവും വരികളും ഏത് വശത്ത് തുറക്കും.
+integration_controls = Plugin controls

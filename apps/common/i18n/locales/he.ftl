@@ -1329,3 +1329,4 @@ interface_panel_side = צד
 interface_panel_side_description = באיזה צד של הדף נמצאת עמודת הרשימות.
 interface_queue_side = צד עמודת התור והמילים
 interface_queue_side_description = באיזה צד נפתחת עמודת התור והמילים.
+integration_controls = Plugin controls

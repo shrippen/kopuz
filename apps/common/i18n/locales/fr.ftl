@@ -1330,3 +1330,4 @@ interface_panel_side = Côté
 interface_panel_side_description = De quel côté de la page se trouve la colonne des playlists.
 interface_queue_side = Côté de la colonne file et paroles
 interface_queue_side_description = De quel côté de la page s'ouvre la colonne file d'attente et paroles.
+integration_controls = Plugin controls

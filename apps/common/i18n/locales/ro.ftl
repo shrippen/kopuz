@@ -1337,3 +1337,4 @@ interface_panel_side = Parte
 interface_panel_side_description = Pe ce parte a paginii stă coloana de playlisturi.
 interface_queue_side = Partea coloanei de coadă și versuri
 interface_queue_side_description = Pe ce parte se deschide coloana de coadă și versuri.
+integration_controls = Plugin controls

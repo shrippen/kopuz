@@ -1323,3 +1323,4 @@ interface_panel_side = Sida
 interface_panel_side_description = Vilken sida av sidan spellistkolumnen sitter på.
 interface_queue_side = Sida för kö- och låttextkolumnen
 interface_queue_side_description = Vilken sida den dockade kö- och låttextkolumnen öppnas på.
+integration_controls = Plugin controls
