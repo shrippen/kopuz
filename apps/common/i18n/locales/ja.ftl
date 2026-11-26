@@ -1337,3 +1337,4 @@ mood_happy = ハッピー
 mood_party = パーティー
 mood_relaxed = リラックス
 mood_sad = サッド
+integration_controls = Plugin controls

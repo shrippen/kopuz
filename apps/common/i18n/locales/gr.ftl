@@ -1364,3 +1364,4 @@ mood_happy = Χαρούμενο
 mood_party = Πάρτι
 mood_relaxed = Χαλαρό
 mood_sad = Λυπημένο
+integration_controls = Plugin controls

@@ -1332,3 +1332,4 @@ mood_happy = Vidám
 mood_party = Parti
 mood_relaxed = Nyugodt
 mood_sad = Szomorú
+integration_controls = Plugin controls

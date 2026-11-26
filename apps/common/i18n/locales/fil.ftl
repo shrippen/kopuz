@@ -1326,3 +1326,4 @@ mood_happy = Masaya
 mood_party = Party
 mood_relaxed = Relaks
 mood_sad = Malungkot
+integration_controls = Plugin controls

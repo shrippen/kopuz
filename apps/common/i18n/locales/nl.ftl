@@ -1358,3 +1358,4 @@ mood_happy = Vrolijk
 mood_party = Feest
 mood_relaxed = Ontspannen
 mood_sad = Verdrietig
+integration_controls = Plugin controls

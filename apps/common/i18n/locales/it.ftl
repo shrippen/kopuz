@@ -1353,3 +1353,4 @@ mood_happy = Allegro
 mood_party = Festa
 mood_relaxed = Rilassato
 mood_sad = Triste
+integration_controls = Plugin controls

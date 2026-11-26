@@ -7,7 +7,7 @@
 //! configure them, and calls the mutating methods to change what is
 //! configured. No credential ever appears here; the daemon holds them.
 
-use crate::schema::{FieldSpec, FieldValue, Icon, Problem, Text};
+use crate::schema::{ChoiceOption, FieldSpec, FieldValue, Icon, Problem, Text};
 
 /// How much of a playlist a source lets a client change.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -346,6 +346,58 @@ pub struct IntegrationInfo {
     pub configured: bool,
     pub connect: ConnectKind,
     pub fields: Vec<FieldSpec>,
+}
+
+/// What a running integration plugin shows right now: its sections of live
+/// controls. The plugin chooses the words, so they are not translated.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct IntegrationPanel {
+    pub id: String,
+    pub name: Text,
+    pub sections: Vec<PanelSection>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct PanelSection {
+    /// Stable within the integration, such as a device's id; empty for the
+    /// integration's own section.
+    pub key: String,
+    pub title: String,
+    pub controls: Vec<PanelControl>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct PanelControl {
+    /// Stable within its section; acting names it.
+    pub key: String,
+    pub label: String,
+    pub kind: PanelControlKind,
+    /// A meter's level from 0 to 1, a toggle's 0 or 1, a slider's position.
+    pub value: f32,
+    /// A status line's words, or a choice's selected option.
+    pub text: String,
+    /// Also offered from the player, not only in settings.
+    pub quick: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub enum PanelControlKind {
+    /// A line of text.
+    #[default]
+    Status,
+    /// A level from 0 to 1, redrawn as it changes.
+    Meter,
+    /// Pressing it acts with value 0.
+    Button,
+    Toggle,
+    Slider {
+        min: f32,
+        max: f32,
+        step: f32,
+    },
+    Choice {
+        options: Vec<ChoiceOption>,
+    },
 }
 
 /// One step of a connection test, in the order it ran.

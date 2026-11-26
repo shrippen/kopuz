@@ -1365,3 +1365,4 @@ mood_happy = שמח
 mood_party = מסיבה
 mood_relaxed = רגוע
 mood_sad = עצוב
+integration_controls = Plugin controls

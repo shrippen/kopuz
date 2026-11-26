@@ -1904,6 +1904,41 @@ impl api::SourceApi for GrpcApi {
         Ok(())
     }
 
+    async fn integration_panels(&self) -> Result<Vec<api::IntegrationPanel>, ApiError> {
+        let list = self
+            .client()
+            .get_integration_panels(Request::new(proto::GetIntegrationPanelsRequest {}))
+            .await
+            .map_err(wire_error)?;
+        Ok(list
+            .get_ref()
+            .panels
+            .iter()
+            .map(convert::integration_panel_from_proto)
+            .collect())
+    }
+
+    async fn act_on_integration(
+        &self,
+        id: String,
+        section: String,
+        control: String,
+        value: f32,
+        text: String,
+    ) -> Result<(), ApiError> {
+        self.client()
+            .act_on_integration(Request::new(proto::ActOnIntegrationRequest {
+                id,
+                section,
+                control,
+                value,
+                text,
+            }))
+            .await
+            .map_err(wire_error)?;
+        Ok(())
+    }
+
     async fn authenticate_integration(&self, id: String) -> Result<api::IntegrationInfo, ApiError> {
         let info = self
             .client()

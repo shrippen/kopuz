@@ -1382,3 +1382,4 @@ mood_happy = Wesoły
 mood_party = Imprezowy
 mood_relaxed = Relaksujący
 mood_sad = Smutny
+integration_controls = Plugin controls

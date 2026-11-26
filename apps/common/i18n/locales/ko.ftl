@@ -1331,3 +1331,4 @@ mood_happy = 행복한
 mood_party = 파티
 mood_relaxed = 편안한
 mood_sad = 슬픈
+integration_controls = Plugin controls

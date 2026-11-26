@@ -1321,3 +1321,4 @@ mood_happy = Neşeli
 mood_party = Parti
 mood_relaxed = Rahat
 mood_sad = Hüzünlü
+integration_controls = Plugin controls

@@ -1325,3 +1325,4 @@ mood_happy = Vui vẻ
 mood_party = Tiệc tùng
 mood_relaxed = Thư giãn
 mood_sad = Buồn
+integration_controls = Plugin controls

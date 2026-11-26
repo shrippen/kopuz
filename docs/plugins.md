@@ -1,6 +1,8 @@
 # Plugins
 
-A plugin adds a source to Kopuz. It is a WebAssembly component built against
+A plugin adds a source to Kopuz, or an [integration](#integrations): something
+that is not a library, such as a device or a service that follows what plays.
+It is a WebAssembly component built against
 the WIT package in [`daemon/plugin-host/wit/`](../daemon/plugin-host/wit), plus a `kopuz-plugin.toml` manifest that
 says what it is, which services it serves, what each of them supports and
 which hosts it may reach. The daemon runs it in a sandbox: no files (except
@@ -24,7 +26,7 @@ Every source is a plugin, of one of three kinds:
   into Kopuz and runs in-process. They register in the same plugin registry
   with a manifest, and a sandboxed plugin installed with one's id replaces it.
 - **Community plugins** live in their authors' repositories and are installed
-  from the marketplace under **Settings → Library → Plugins** with one click.
+  from the marketplace under **Settings → Plugins** with one click.
   They always run sandboxed. They may add services of their own, which then
   show up in the source picker, marked experimental. They may not claim a
   service Kopuz serves itself, since that would hand them its sources'
@@ -179,6 +181,124 @@ offline.
 A stream URL or a cover the plugin returns may then be a path to a file in
 those folders. The daemon opens the file itself after resolving links, and
 refuses a path that leads outside the folders.
+
+## Integrations
+
+A plugin that is not a source declares an `[integration]` instead of any
+`[[service]]`, with the fields the person fills in. It shows up under
+**Settings → Connectivity**, beside ListenBrainz and Discord, with a toggle
+named after the plugin above its own fields. Nothing runs until that toggle is on
+and every required field has an answer; the plugin is then asked to check the
+answers, and they are kept only if it accepts them. From then on the host keeps
+one instance of it running, so a connection it opens stays open, and reopens it
+when the answers change or a new build is installed.
+
+```toml
+id = "webhook"
+name = "Webhook"
+version = "0.1.0"
+api = "0.2"
+description = "Tells an address of your choice what kopuz is doing."
+
+[permissions]
+network = ["$server"]
+
+[integration]
+server = "url"               # the url field whose host `$server` names
+listens = ["playback"]       # what the host tells it as it happens; see below
+# panel = true               # shows live controls; see below
+# icon = "M12 2L2 7..."      # optional SVG path in a 24x24 box
+
+[[integration.field]]
+key = "url"
+label = "Address"
+kind = "url"                 # text, secret, url, toggle or choice
+placeholder = "http://homeassistant.local:8123/api/webhook/kopuz"
+# default = "..."            # what a new setup starts with; never for a secret
+required = true
+
+[[integration.field]]
+key = "token"
+label = "Token"
+kind = "secret"              # kept with the daemon's credentials, never sent back out
+help = "Sent as a bearer token, for an address that asks for one."
+
+# [[integration.field]]
+# key = "mode"
+# label = "Follow"
+# kind = "choice"
+# options = [{ value = "beat", label = "The beat" }, { value = "level", label = "The loudness" }]
+```
+
+A label, help line or option is shown as written, in the plugin's own words.
+Field keys starting with `$` are the host's own. Every answer, secret or not,
+is kept with the daemon's credentials rather than in a settings file.
+
+`$server` works as it does for a source: it names the host of the address the
+person typed in the `server` field, and only that host may be on this machine
+or its network. A plugin for a local service, such as a device hub listening on
+`ws://127.0.0.1:12345`, asks for the address with that as its `default`.
+
+Implement `kopuz_plugin_sdk::integration::Integration` and export it with
+`export_integration!`:
+
+```rust
+use kopuz_plugin_sdk::SourceError;
+use kopuz_plugin_sdk::integration::{Integration, Settings};
+
+pub struct Webhook {
+    url: String,
+}
+
+impl Integration for Webhook {
+    fn open(settings: Settings) -> Self {
+        Webhook { url: settings.get("url").unwrap_or_default().to_string() }
+    }
+
+    fn validate(&self) -> Result<(), SourceError> {
+        // Reach the address; an error is shown and the answers are not kept.
+        Ok(())
+    }
+}
+
+kopuz_plugin_sdk::export_integration!(Webhook);
+```
+
+An integration hears only what its `listens` list names:
+
+- **`playback`** calls `on_playback` with a `PlaybackEvent`: `Started` with the
+  track (its library key, title, artist, album, length and MusicBrainz ids) and
+  where it began, then `Paused`, `Resumed` and `Seeked` with the position in
+  milliseconds, and `Stopped`. An integration turned on partway through a track
+  hears it start first. Events come one at a time, in order; one the plugin is
+  too far behind on is dropped rather than held for it.
+- **`audio`** calls `on_audio` about twenty times a second while music
+  plays, with `AudioFrame`s: the mix's `level` and `peak`, the `low`
+  (below about 200 Hz), `mid` and `high` (above about 2 kHz) bands, an
+  `onset` that is high on a drum hit and near zero on a held note, and `beat`,
+  set on an onset that stands out from the last second and comes at least a
+  quarter second after the last beat. Levels are measured before the volume,
+  so turning kopuz down does not quiet them. Nothing is measured while no
+  plugin listens or nothing plays, and a plugin that falls behind misses frames
+  rather than hearing them late. A device that pulses to the music needs
+  nothing more than this.
+
+An integration with `panel = true` shows live controls, such as a status line,
+a level meter, a button, a toggle, a slider or a choice. `panel` returns
+sections of controls, asked a few times a second while someone looks, so answer
+from what the plugin holds. `act` is called when the person changes one: with
+`value` for a meter, toggle, slider or button, and `text` for a choice. The
+last value of each toggle, slider and choice is kept with the plugin's answers
+and passed to `act` again each time the integration opens, so a device's
+setting survives a restart without the plugin storing it; an error from that
+call is logged and the value kept. A control with `quick` set is also offered
+from the player. Labels are shown as written.
+
+[`daemon/plugins/examples/webhook`](../daemon/plugins/examples/webhook) is a
+complete one: it posts each playback event to an address as JSON, and each
+beat too when its **Post beats** toggle is on. Its panel shows how the last
+post went, a **Send test** button and a **Hold posts** toggle. An integration plugin is listed in the marketplace like any
+other, with an empty `services` list.
 
 ## Installing by hand
 

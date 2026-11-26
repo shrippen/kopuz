@@ -7,6 +7,7 @@ mod meta;
 mod mini;
 mod panel;
 mod queue_view;
+mod quick;
 mod seek;
 mod settings;
 mod sheet;
@@ -104,6 +105,8 @@ pub struct NowPlaying {
     sheet_bar: Option<Entity<NowPlaying>>,
     // Around the mini restore button, so keyboard focus shows it as hover does.
     restore_focus: FocusHandle,
+    /// The bar's button for plugin controls; only the main bar has one.
+    quick: Option<(Entity<quick::QuickControls>, Subscription)>,
     _devices_fetch: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
@@ -233,6 +236,11 @@ impl NowPlaying {
             sheet_bar: (presentation == Presentation::Sheet)
                 .then(|| cx.new(|cx| Self::new(Presentation::SheetBar, window, cx))),
             restore_focus: cx.focus_handle(),
+            quick: (presentation == Presentation::Bar).then(|| {
+                let quick = cx.new(|cx| quick::QuickControls::new(window, cx));
+                let subscription = cx.observe(&quick, |_, _, cx| cx.notify());
+                (quick, subscription)
+            }),
             _devices_fetch: None,
             _subscriptions: subscriptions,
         }

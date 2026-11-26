@@ -7131,6 +7131,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "kopuz-plugin-buttplug"
+version = "0.1.0"
+dependencies = [
+ "kopuz-plugin-sdk",
+ "serde_json",
+]
+
+[[package]]
 name = "kopuz-plugin-clippsly"
 version = "1.0.1"
 dependencies = [
@@ -7204,6 +7212,14 @@ dependencies = [
  "kopuz-plugin-sdk",
  "md5",
  "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "kopuz-plugin-webhook"
+version = "0.1.0"
+dependencies = [
+ "kopuz-plugin-sdk",
  "serde_json",
 ]
 
@@ -9638,6 +9654,7 @@ dependencies = [
  "settings_appearance",
  "settings_interface",
  "settings_playback",
+ "settings_plugins",
  "settings_sources",
  "store",
  "theme",
@@ -12222,6 +12239,18 @@ dependencies = [
  "link",
  "store",
  "theme",
+ "tracing",
+]
+
+[[package]]
+name = "settings_plugins"
+version = "0.1.0"
+dependencies = [
+ "components",
+ "gpui-kit",
+ "kopuz-api",
+ "link",
+ "store",
  "tracing",
 ]
 

@@ -1333,3 +1333,4 @@ mood_happy = Fröhlich
 mood_party = Partytauglich
 mood_relaxed = Entspannt
 mood_sad = Traurig
+integration_controls = Plugin-Steuerung

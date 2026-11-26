@@ -1362,3 +1362,4 @@ mood_happy = மகிழ்ச்சியானது
 mood_party = விருந்து
 mood_relaxed = நிதானமானது
 mood_sad = சோகமானது
+integration_controls = Plugin controls

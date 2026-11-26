@@ -1383,3 +1383,4 @@ mood_happy = Весёлое
 mood_party = Для вечеринки
 mood_relaxed = Расслабленное
 mood_sad = Грустное
+integration_controls = Plugin controls

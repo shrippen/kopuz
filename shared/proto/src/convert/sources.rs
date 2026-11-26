@@ -441,6 +441,109 @@ pub fn integration_info_from_proto(value: &IntegrationInfo) -> api::IntegrationI
     }
 }
 
+pub fn panel_kind_to_proto(value: &api::PanelControlKind) -> PanelControlKind {
+    use api::PanelControlKind as Kind;
+    let tag = match value {
+        Kind::Status => PanelControlTag::Status,
+        Kind::Meter => PanelControlTag::Meter,
+        Kind::Button => PanelControlTag::Button,
+        Kind::Toggle => PanelControlTag::Toggle,
+        Kind::Slider { .. } => PanelControlTag::Slider,
+        Kind::Choice { .. } => PanelControlTag::Choice,
+    };
+    let (min, max, step) = match value {
+        Kind::Slider { min, max, step } => (*min, *max, *step),
+        _ => (0.0, 0.0, 0.0),
+    };
+    let options = match value {
+        Kind::Choice { options } => options.iter().map(choice_option_to_proto).collect(),
+        _ => Vec::new(),
+    };
+    PanelControlKind {
+        tag: tag as i32,
+        min,
+        max,
+        step,
+        options,
+    }
+}
+
+pub fn panel_kind_from_proto(value: &PanelControlKind) -> api::PanelControlKind {
+    use api::PanelControlKind as Kind;
+    match PanelControlTag::try_from(value.tag).unwrap_or(PanelControlTag::Unspecified) {
+        PanelControlTag::Meter => Kind::Meter,
+        PanelControlTag::Button => Kind::Button,
+        PanelControlTag::Toggle => Kind::Toggle,
+        PanelControlTag::Slider => Kind::Slider {
+            min: value.min,
+            max: value.max,
+            step: value.step,
+        },
+        PanelControlTag::Choice => Kind::Choice {
+            options: value.options.iter().map(choice_option_from_proto).collect(),
+        },
+        PanelControlTag::Status | PanelControlTag::Unspecified => Kind::Status,
+    }
+}
+
+pub fn integration_panel_to_proto(value: &api::IntegrationPanel) -> IntegrationPanel {
+    IntegrationPanel {
+        id: value.id.clone(),
+        name: Some(text_to_proto(&value.name)),
+        sections: value
+            .sections
+            .iter()
+            .map(|section| PanelSection {
+                key: section.key.clone(),
+                title: section.title.clone(),
+                controls: section
+                    .controls
+                    .iter()
+                    .map(|control| PanelControl {
+                        key: control.key.clone(),
+                        label: control.label.clone(),
+                        kind: Some(panel_kind_to_proto(&control.kind)),
+                        value: control.value,
+                        text: control.text.clone(),
+                        quick: control.quick,
+                    })
+                    .collect(),
+            })
+            .collect(),
+    }
+}
+
+pub fn integration_panel_from_proto(value: &IntegrationPanel) -> api::IntegrationPanel {
+    api::IntegrationPanel {
+        id: value.id.clone(),
+        name: value.name.as_ref().map(text_from_proto).unwrap_or_default(),
+        sections: value
+            .sections
+            .iter()
+            .map(|section| api::PanelSection {
+                key: section.key.clone(),
+                title: section.title.clone(),
+                controls: section
+                    .controls
+                    .iter()
+                    .map(|control| api::PanelControl {
+                        key: control.key.clone(),
+                        label: control.label.clone(),
+                        kind: control
+                            .kind
+                            .as_ref()
+                            .map(panel_kind_from_proto)
+                            .unwrap_or_default(),
+                        value: control.value,
+                        text: control.text.clone(),
+                        quick: control.quick,
+                    })
+                    .collect(),
+            })
+            .collect(),
+    }
+}
+
 pub fn browser_profile_to_proto(value: &api::BrowserProfile) -> BrowserProfile {
     BrowserProfile {
         id: value.id.clone(),
@@ -479,6 +582,54 @@ mod tests {
             value: Some("https://jelly.example".into()),
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn an_integration_panel_round_trips_every_control_kind() {
+        let control = |key: &str, kind| api::PanelControl {
+            key: key.into(),
+            label: format!("label {key}"),
+            kind,
+            value: 0.5,
+            text: "text".into(),
+            quick: key == "volume",
+        };
+        let panel = api::IntegrationPanel {
+            id: "plugin:toy".into(),
+            name: api::Text::literal("Toy"),
+            sections: vec![api::PanelSection {
+                key: "dev-1".into(),
+                title: "Device".into(),
+                controls: vec![
+                    control("state", api::PanelControlKind::Status),
+                    control("level", api::PanelControlKind::Meter),
+                    control("scan", api::PanelControlKind::Button),
+                    control("on", api::PanelControlKind::Toggle),
+                    control(
+                        "volume",
+                        api::PanelControlKind::Slider {
+                            min: 0.0,
+                            max: 2.0,
+                            step: 0.25,
+                        },
+                    ),
+                    control(
+                        "follow",
+                        api::PanelControlKind::Choice {
+                            options: vec![api::ChoiceOption {
+                                value: "beat".into(),
+                                label: api::Text::literal("Beat"),
+                                unavailable: None,
+                            }],
+                        },
+                    ),
+                ],
+            }],
+        };
+        assert_eq!(
+            integration_panel_from_proto(&integration_panel_to_proto(&panel)),
+            panel
+        );
     }
 
     #[test]

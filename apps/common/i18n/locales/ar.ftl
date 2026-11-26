@@ -1374,3 +1374,4 @@ mood_happy = مبهج
 mood_party = حفلات
 mood_relaxed = هادئ
 mood_sad = حزين
+integration_controls = Plugin controls

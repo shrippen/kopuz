@@ -1331,3 +1331,4 @@ mood_happy = 欢快
 mood_party = 派对
 mood_relaxed = 放松
 mood_sad = 伤感
+integration_controls = Plugin controls

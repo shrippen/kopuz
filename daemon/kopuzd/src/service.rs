@@ -2158,6 +2158,38 @@ impl Kopuz for KopuzGrpc {
         Ok(Response::new(proto::Unit {}))
     }
 
+    async fn get_integration_panels(
+        &self,
+        _: Request<proto::GetIntegrationPanelsRequest>,
+    ) -> Result<Response<proto::IntegrationPanelList>, Status> {
+        let panels = self.0.api.integration_panels().await.map_err(failed)?;
+        Ok(Response::new(proto::IntegrationPanelList {
+            panels: panels
+                .iter()
+                .map(convert::integration_panel_to_proto)
+                .collect(),
+        }))
+    }
+
+    async fn act_on_integration(
+        &self,
+        request: Request<proto::ActOnIntegrationRequest>,
+    ) -> Result<Response<proto::Unit>, Status> {
+        let request = request.into_inner();
+        self.0
+            .api
+            .act_on_integration(
+                request.id,
+                request.section,
+                request.control,
+                request.value,
+                request.text,
+            )
+            .await
+            .map_err(failed)?;
+        Ok(Response::new(proto::Unit {}))
+    }
+
     async fn authenticate_integration(
         &self,
         request: Request<proto::IntegrationId>,

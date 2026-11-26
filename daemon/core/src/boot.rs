@@ -345,6 +345,10 @@ pub async fn assemble(args: &CoreArgs) -> Result<Core, Box<dyn std::error::Error
     let spotify = crate::SpotifySink::new(session.clone(), sources.clone());
     session.set_external_sink(spotify.clone());
     spotify.spawn_discovery();
+    let integrations =
+        crate::IntegrationService::new(config_service_for_api, credentials, presence_pause);
+    crate::plugin_listeners::spawn(&session, Arc::clone(integrations.plugins()));
+    crate::plugin_audio::spawn(session.audio_meter(), Arc::clone(integrations.plugins()));
     let api = Arc::new(
         LocalApi::new(session.clone())
             .with_library(library.clone())
@@ -362,11 +366,7 @@ pub async fn assemble(args: &CoreArgs) -> Result<Core, Box<dyn std::error::Error
             .with_downloader(downloader)
             .with_spotify(spotify)
             .with_video(crate::VideoService::new(database.clone(), session.clone()))
-            .with_integrations(crate::IntegrationService::new(
-                config_service_for_api,
-                credentials,
-                presence_pause,
-            )),
+            .with_integrations(integrations),
     );
     api.watch_plugins();
 

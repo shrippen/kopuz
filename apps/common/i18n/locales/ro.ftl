@@ -1373,3 +1373,4 @@ mood_happy = Vesel
 mood_party = De petrecere
 mood_relaxed = Relaxat
 mood_sad = Trist
+integration_controls = Plugin controls

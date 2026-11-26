@@ -1325,3 +1325,4 @@ mood_happy = Ceria
 mood_party = Pesta
 mood_relaxed = Santai
 mood_sad = Sedih
+integration_controls = Plugin controls

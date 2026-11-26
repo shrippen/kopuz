@@ -879,6 +879,7 @@ fn all(config: &config::Settings, credentials: &Credentials, paused: bool) -> Ve
     published.push(listenbrainz(credentials));
     published.push(librefm(credentials));
     published.push(audiomuse(credentials));
+    published.extend(crate::plugin_integrations::infos(credentials));
     published
 }
 
@@ -1012,6 +1013,7 @@ pub struct IntegrationService {
     config: Arc<crate::config_service::ConfigService>,
     credentials: CredentialStore,
     presence_pause: PresencePause,
+    plugins: Arc<crate::plugin_integrations::PluginIntegrations>,
 }
 
 impl IntegrationService {
@@ -1021,10 +1023,33 @@ impl IntegrationService {
         presence_pause: PresencePause,
     ) -> Arc<Self> {
         Arc::new(Self {
+            plugins: crate::plugin_integrations::PluginIntegrations::new(credentials.clone()),
             config,
             credentials,
             presence_pause,
         })
+    }
+
+    /// The integration plugins turned on.
+    pub fn plugins(&self) -> &Arc<crate::plugin_integrations::PluginIntegrations> {
+        &self.plugins
+    }
+
+    /// What each running integration plugin with a panel shows now.
+    pub async fn panels(&self) -> Vec<api::IntegrationPanel> {
+        self.plugins.panels().await
+    }
+
+    /// A panel control of an integration plugin was changed.
+    pub async fn act(
+        &self,
+        id: &str,
+        section: &str,
+        control: &str,
+        value: f32,
+        text: &str,
+    ) -> Result<(), ApiError> {
+        self.plugins.act(id, section, control, value, text).await
     }
 
     pub async fn list(&self) -> Vec<IntegrationInfo> {
@@ -1051,6 +1076,9 @@ impl IntegrationService {
         id: &str,
         values: Vec<FieldValue>,
     ) -> Result<IntegrationInfo, ApiError> {
+        if id.starts_with(crate::plugin_integrations::ID_PREFIX) {
+            return self.plugins.set(id, &values).await;
+        }
         let info = self.info(id).await?;
         self.config
             .ensure_unlocked(&write_keys(&info, &values))
@@ -1083,6 +1111,9 @@ impl IntegrationService {
     }
 
     pub async fn clear(&self, id: &str) -> Result<(), ApiError> {
+        if id.starts_with(crate::plugin_integrations::ID_PREFIX) {
+            return self.plugins.clear(id).await;
+        }
         self.info(id).await?;
         if id == DISCORD {
             self.config.ensure_unlocked(&PRESENCE_KEYS[..1]).await?;

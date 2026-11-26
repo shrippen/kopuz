@@ -1344,3 +1344,4 @@ mood_happy = pilin pona
 mood_party = musi suli
 mood_relaxed = pilin lape
 mood_sad = pilin ike
+integration_controls = Plugin controls

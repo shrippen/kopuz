@@ -217,6 +217,12 @@ impl NowPlaying {
                         })),
                 )
             })
+            .children(
+                self.quick
+                    .as_ref()
+                    .map(|(quick, _)| quick.clone())
+                    .filter(|quick| quick.read(cx).any()),
+            )
             .children(self.devices_button(accent, cx))
             .when(room.share, |row| {
                 row.child(
