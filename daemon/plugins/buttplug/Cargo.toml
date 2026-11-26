@@ -1,0 +1,19 @@
+[package]
+name = "kopuz-plugin-buttplug"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+description = "Drives buttplug.io devices through Intiface Central, following the music."
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+kopuz-plugin-sdk = { path = "../sdk" }
+serde_json = { workspace = true }
