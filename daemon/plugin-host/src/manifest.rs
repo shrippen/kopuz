@@ -236,6 +236,8 @@ pub enum ManifestError {
     NoServerField(String),
     #[error("the integration's choice field `{0}` has no options")]
     NoOptions(String),
+    #[error("the integration's field `{0}` starts with `$`, which names the host's own")]
+    ReservedField(String),
 }
 
 impl Manifest {
@@ -285,6 +287,9 @@ impl Integration {
     fn check(&self) -> Result<(), ManifestError> {
         let mut seen = std::collections::HashSet::new();
         for field in &self.fields {
+            if field.key.starts_with('$') {
+                return Err(ManifestError::ReservedField(field.key.clone()));
+            }
             if !seen.insert(field.key.as_str()) {
                 return Err(ManifestError::DuplicateField(field.key.clone()));
             }
@@ -560,6 +565,11 @@ mod tests {
         assert!(matches!(
             Manifest::parse(&no_options),
             Err(ManifestError::NoOptions(key)) if key == "mode"
+        ));
+        let reserved = LIGHTS.replace("key = \"mode\"", "key = \"$enabled\"");
+        assert!(matches!(
+            Manifest::parse(&reserved),
+            Err(ManifestError::ReservedField(key)) if key == "$enabled"
         ));
         let unknown = LIGHTS.replace("required = true", "required = true\nsecret = true");
         assert!(matches!(

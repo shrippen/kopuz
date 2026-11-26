@@ -909,6 +909,10 @@ impl LocalApi {
         if let Some(sources) = &self.sources {
             sources.plugins_changed().await;
         }
+        // An integration whose plugin went closes now, and a new build takes over a running one.
+        if let Ok(integrations) = self.integrations() {
+            integrations.plugins().running();
+        }
         self.session.invalidate(api::Table::Servers);
         self.session.invalidate(api::Table::Plugins);
     }
