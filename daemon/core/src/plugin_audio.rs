@@ -35,11 +35,19 @@ const BEAT_GAP: Duration = Duration::from_millis(250);
 const BEAT_RATIO: f32 = 1.6;
 const BEAT_FLOOR: f32 = 0.02;
 
+/// A beat must also reach this share of the strongest recent onset, which
+/// fades by `PEAK_DECAY` a window (half after about 7 s). The average alone
+/// fades to nothing within a second of quiet, so a hi-hat after a kick-less
+/// breakdown would stand far above it.
+const BEAT_OF_PEAK: f32 = 0.4;
+const PEAK_DECAY: f32 = 0.995;
+
 /// Works out onsets and beats from one window after another.
 #[derive(Debug)]
 pub(crate) struct Beats {
     previous: Option<Levels>,
     onsets: VecDeque<f32>,
+    peak: f32,
     since_beat: Duration,
 }
 
@@ -49,6 +57,7 @@ impl Default for Beats {
         Self {
             previous: None,
             onsets: VecDeque::with_capacity(HISTORY + 1),
+            peak: 0.0,
             since_beat: BEAT_GAP,
         }
     }
@@ -67,8 +76,11 @@ impl Beats {
             false => self.onsets.iter().sum::<f32>() / self.onsets.len() as f32,
         };
         self.since_beat = self.since_beat.saturating_add(elapsed);
-        let beat =
-            onset >= BEAT_FLOOR && onset > recent * BEAT_RATIO && self.since_beat >= BEAT_GAP;
+        let beat = onset >= BEAT_FLOOR
+            && onset > recent * BEAT_RATIO
+            && onset >= self.peak * BEAT_OF_PEAK
+            && self.since_beat >= BEAT_GAP;
+        self.peak = onset.max(self.peak * PEAK_DECAY);
         if beat {
             self.since_beat = Duration::ZERO;
         }
@@ -202,6 +214,30 @@ mod tests {
         }
         // Eight hits 100 ms apart over 400 ms: one every 250 ms at most.
         assert_eq!(found, 2);
+    }
+
+    #[test]
+    fn a_quiet_stretch_has_no_false_beat_and_kicks_return() {
+        let mut beats = Beats::default();
+        let kick = levels(0.6, 0.2, 0.05);
+        let rest = levels(0.05, 0.15, 0.05);
+        // Three seconds of kicks on every tenth window.
+        for index in 0..60 {
+            beats.frame(if index % 10 == 0 { kick } else { rest }, WINDOW);
+        }
+
+        // Seven seconds of nothing but a small bass pulse every half second.
+        for index in 0..140 {
+            let frame = if index % 10 == 0 {
+                levels(0.1, 0.0, 0.0)
+            } else {
+                levels(0.0, 0.0, 0.0)
+            };
+            assert!(!beats.frame(frame, WINDOW).beat, "false beat at {index}");
+        }
+
+        // The first returning kick counts.
+        assert!(beats.frame(kick, WINDOW).beat);
     }
 
     #[test]
