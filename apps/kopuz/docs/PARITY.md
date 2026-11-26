@@ -399,6 +399,7 @@ Category → rows. **[H]** = hardcoded `Settings` field (applied to the local co
 
 ### 4.4 Connectivity (integrations)
 - [x] [S] For each `api.integrations()` (refetched on inv:Servers or after change): SchemaForm over `IntegrationInfo.fields` → `api.set_integration_settings(id, [value])`
+- [x] [S] Plugin integrations (`plugin:` id, configured): live panel under the fields from `api.integration_panels()`, polled every 200 ms while the page is drawn; a control acts through `api.act_on_integration`
 - [x] [A] `ConnectKind::WebSignIn` → button "integration_connect{name}" / "integration_connected{name}" → `api.authenticate_integration(id)`
 - [x] [A] Connect an integration from a browser profile (`api.browser_profiles()`, `api.connect_integration_from_browser`)
 

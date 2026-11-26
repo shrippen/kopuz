@@ -26,6 +26,7 @@ pub mod grid;
 pub mod header;
 pub mod heading;
 pub mod icon_button;
+pub mod integration_panel;
 pub mod job;
 pub mod karaoke;
 pub mod keycap;
@@ -110,6 +111,7 @@ pub use header::{
 };
 pub use heading::{Heading, SectionHeading};
 pub use icon_button::{FollowButton, IconButton, IconTone};
+pub use integration_panel::{IntegrationPanelView, PanelFilter};
 pub use job::{JobLayout, JobLine, JobStop, ProgressBar};
 pub use karaoke::{KaraokeText, Syllable};
 pub use keycap::{KeyHint, Keycap};

@@ -20,3 +20,6 @@ components = { path = "../components" }
 gpui-kit = { workspace = true }
 tracing = { workspace = true }
 utils = { workspace = true }
+
+[dev-dependencies]
+gpui-kit = { workspace = true, features = ["test-support"] }
